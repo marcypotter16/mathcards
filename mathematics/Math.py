@@ -1,23 +1,33 @@
 # from typing import *
 
+from math import ceil
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar
 
 T = TypeVar("T")
 
-BinaryOp = Callable[[T, T], T] | Dict[Tuple[T, T], T]
+type BinaryOp[T] = Callable[[T, T], T] | Dict[Tuple[T, T], T]
+type MorphismMap[SourceT, TargetT] = Callable[[SourceT], TargetT] | Dict[SourceT, TargetT]
 
-def _op(operation: BinaryOp, a: T, b: T) -> T:
+def _op(operation: BinaryOp[T], a: T, b: T) -> T:
     if isinstance(operation, dict):
         return operation[(a, b)]
     return operation(a, b)
 
 class AlgebraicStructure[T]:
-
     def validate(self):
-        pass
+        return NotImplemented
+
+    def is_finite(self) -> bool:
+        return NotImplemented
+
+    def typst_str(self) -> str:
+        return NotImplemented
+
+    def __contains__(self, item):
+        return NotImplemented
 
     @staticmethod
-    def find_identity(elements: Set[T], operation: BinaryOp) -> Optional[T]:
+    def find_identity(elements: Set[T], operation: BinaryOp[T]) -> Optional[T]:
         """Finds the identity element 'e' if it exists."""
             
         for candidate in elements:
@@ -32,7 +42,7 @@ class AlgebraicStructure[T]:
         return None
 
     @staticmethod
-    def find_one(elements: Set[T], product: BinaryOp, zero: T) -> T:
+    def find_one(elements: Set[T], product: BinaryOp[T], zero: T) -> T:
         """Finds the multiplicative identity '1' if it exists (ignoring zero)."""
         for candidate in elements:
             if candidate == zero:
@@ -52,7 +62,7 @@ class AlgebraicStructure[T]:
         raise NeutralElementNotFound("Validation Failed: No multiplicative identity found.")
 
     @staticmethod
-    def check_associativity(elements: Set[T], operation: BinaryOp) -> bool:
+    def check_associativity(elements: Set[T], operation: BinaryOp[T]) -> bool:
         # 2. Check Associativity: (a + b) + c == a + (b + c)
         for a in elements:
             for b in elements:
@@ -64,7 +74,7 @@ class AlgebraicStructure[T]:
         return True
 
     @staticmethod
-    def check_commutativity(elements: Set[T], operation: BinaryOp) -> bool:
+    def check_commutativity(elements: Set[T], operation: BinaryOp[T]) -> bool:
         for e in elements:
             for f in elements:
                 ef = _op(operation, e, f)
@@ -89,10 +99,11 @@ class RingProductNotDistributive(ValueError):
     pass
 
 class AdditiveGroup[T](AlgebraicStructure[T]):
-    def __init__(self, elements: Set[T], gp_operation: BinaryOp) -> None:
+    def __init__(self, elements: Set[T], gp_operation: BinaryOp[T]) -> None:
         self.elements:      Set[T]              = elements
         self.gp_operation                       = gp_operation
-        self.identity:      T | None            = None
+        self.zero:          T | None            = None
+        self.generators:    Set[T] | None       = None
         self.validate()
 
     def add(self, e1: T, e2: T) -> T:
@@ -104,18 +115,27 @@ class AdditiveGroup[T](AlgebraicStructure[T]):
             return self.gp_operation[pair]
         return self.gp_operation(e1, e2)
 
+    def neg(self, e1: T) -> T:
+        for el in self.elements:
+            if self.add(e1, el) == self.zero:
+                return el
+        raise NotAllElementsInvertible(f"Element {e1} is not invertible (this shouldn't happen!)")
+
+    def sub(self, e1: T, e2: T):
+        return self.add(e1, self.neg(e2))
+
     def validate(self) -> None:
         """Validates identity, invertibility, and associativity for finite groups."""
-        self.identity = AlgebraicStructure.find_identity(self.elements, self.gp_operation)
+        self.zero = AlgebraicStructure.find_identity(self.elements, self.gp_operation)
 
-        if self.identity is None:
+        if self.zero is None:
             raise NeutralElementNotFound("Validation Failed: No identity element found.")
 
         # 1. Check Invertibility
         for a in self.elements:
             has_inverse = False
             for b in self.elements:
-                if self.add(a, b) == self.identity and self.add(b, a) == self.identity:
+                if self.add(a, b) == self.zero and self.add(b, a) == self.zero:
                     has_inverse = True
                     break
             if not has_inverse:
@@ -125,11 +145,11 @@ class AdditiveGroup[T](AlgebraicStructure[T]):
         if not res:
             raise OperationNotAssociative(f"Validation Failed: Associativity fails.")
 
-        print(f"Group successfully validated! Identity is {self.identity}.")
+        print(f"Group successfully validated! Identity is {self.zero}.")
 
 
 class AbelianGroup[T](AdditiveGroup[T]):
-    def __init__(self, elements: Set[T], gp_operation: BinaryOp) -> None:
+    def __init__(self, elements: Set[T], gp_operation: BinaryOp[T]) -> None:
         super().__init__(elements, gp_operation)
 
     def validate(self) -> None:
@@ -140,16 +160,16 @@ class AbelianGroup[T](AdditiveGroup[T]):
 
 
 class UnitaryRing[T](AbelianGroup[T]):
-    def __init__(self, elements: Set[T], gp_operation: BinaryOp, product: BinaryOp) -> None:
+    def __init__(self, elements: Set[T], gp_operation: BinaryOp[T], product: BinaryOp[T]) -> None:
         self.elements:      Set[T]          = elements
-        self.gp_operation:  BinaryOp        = gp_operation
-        self.product:       BinaryOp        = product
+        self.gp_operation:  BinaryOp[T]     = gp_operation
+        self.product:       BinaryOp[T]     = product
         self.validate()
-        self.zero:          T               = self.identity # type: ignore because it has to exist
+        self.zero:          T               = self.zero # type: ignore because it has to exist
         self.one:           T               = AlgebraicStructure.find_one(self.elements, self.product, self.zero)
 
 
-    def multiply(self, e1, e2):
+    def multiply(self, e1: T, e2: T) -> T:
         if isinstance(self.product, dict):
             pair = (e1, e2)
             if pair not in self.product:
@@ -157,6 +177,18 @@ class UnitaryRing[T](AbelianGroup[T]):
             # print(f"+{pair} = {self.operation[pair]}")
             return self.product[pair]
         return self.product(e1, e2)
+
+    def mult_inv(self, e1: T) -> T | None:
+        for el in self.elements:
+            if self.multiply(e1, el) == self.one:
+                return el
+        return None
+
+    def is_invertible(self, e1: T) -> bool:
+        return self.mult_inv(e1) is not None
+
+    def is_field(self) -> bool:
+        return all(self.is_invertible(el) for el in self.elements if el != self.zero)
 
     def validate(self) -> None:
         super().validate()
@@ -178,7 +210,111 @@ class UnitaryRing[T](AbelianGroup[T]):
                         raise RingProductNotDistributive(f"({e}+{f}){g} = {left} != {e}*{g} + {f}*{g} = {right}")
 
         print("Ring is distributive and OK")
+
+    def divides(self, e1: T, e2: T) -> T | None:
+        """If e1 divides e2 it returns x such that e1 * x = e2, otherwise returns None"""
+        for e in self.elements:
+            prod = self.multiply(e1, e)
+            if prod == e2:
+                return prod
+        return None
+
+
+class Ideal[T](AbelianGroup[T]):
+    """Base class for ideals, probably should not be instantiated"""
+    generators: Set[T]
+
+    def __init__(self, generators: Set[T], ring: UnitaryRing[T]) -> None:
+        self.generators = generators
+        self.ring = ring
+
+    def is_prime(self) -> bool:
+        return NotImplemented
+
+    def is_maximal(self) -> bool:
+        return NotImplemented
     
+    def typst_str(self) -> str:
+        return f"({', '.join(gen.typst_str() for gen in self.generators)})" # type: ignore
+    def __repr__(self) -> str:
+        return f"({self.generators})"
+
+class PrincipalIdeal[T](Ideal[T]):
+    generator: T
+    def __init__(self, generator: T, ring: UnitaryRing[T]) -> None:
+        self.ring = ring
+        self.generators = { generator }
+        self.generator = generator
+
+    def typst_str(self) -> str:
+        if hasattr(self.generator, "typst_str"):
+            return f"({self.generator.typst_str()})" # type: ignore
+        raise ValueError("Generator for some reason doesn't have typst str method")
+
+    def __repr__(self) -> str:
+        return f"({self.generator})"
+
+# Generic over the *element types* (e.g., int, int)
+class Morphism[SourceElementT, TargetElementT]:
+    def __init__(
+        self, 
+        source: AdditiveGroup[SourceElementT], 
+        target: AdditiveGroup[TargetElementT], 
+        mapping: MorphismMap[SourceElementT, TargetElementT]
+    ) -> None:
+        self.source = source
+        self.target = target
+        self._mapping = mapping
+
+    def __call__(self, element: SourceElementT) -> TargetElementT:
+        if isinstance(self._mapping, dict):
+            if element not in self._mapping:
+                raise KeyError(f"Element {element} has no mapping defined.")
+            return self._mapping[element]
+        return self._mapping(element)
+
+    @property
+    def kernel(self) -> Set[SourceElementT]:
+        if not self.source.is_finite():
+            return NotImplemented("Kernel for infinite groups is not yet implemented")
+        return { el for el in self.source.elements if self(el) == self.target.zero }
+
+    @property
+    def image(self) -> Set[TargetElementT]:
+        return { self(el) for el in self.source.elements }
+
+def is_prime(n: int) -> bool:
+    """The most basic primality test, for small numbers it's enough"""
+    for i in range(2, ceil(n*.5) + 1):
+        if n % i == 0:
+            return False
+    return True
+
+def factorize(n: int) -> dict[int, int]:
+    """Returns a dictionary mapping prime factors to their exponents: {p: exp}."""
+    n = abs(n)
+    factors = {}
+    
+    # Handle small edge cases
+    if n <= 1:
+        return factors
+        
+    d = 2
+    while d * d <= n:
+        if n % d == 0:
+            count = 0
+            while n % d == 0:
+                count += 1
+                n //= d
+            factors[d] = count
+        d += 1
+        
+    if n > 1:
+        factors[n] = 1
+        
+    return factors
+
+
 if __name__ == "__main__":
     elements = {0, 1}
     operation = {
@@ -193,5 +329,11 @@ if __name__ == "__main__":
         (1, 0): 0,
         (1, 1): 1
     }
-    g = UnitaryRing[int](elements, operation, prod)
-    print(g.zero, g.one)
+    g1 = UnitaryRing[int](elements, operation, prod)
+    g2 = UnitaryRing[int](elements, operation, prod)
+    mapping = {
+        0: 0,
+        1: 0
+    }
+    mo = Morphism(g1, g2, mapping)
+    print(mo.kernel, mo.image) # {0, 1} {0}

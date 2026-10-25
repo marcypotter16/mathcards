@@ -1,8 +1,7 @@
 from asyncio import wrap_future
-from concurrent.futures import Future
 from sys import exit
 
-from GameEntities.Card import Card, CardData, Suit
+from GameEntities.Card import Card
 import pyray as rl
 
 from Vector import Vector2
@@ -59,7 +58,6 @@ class FormulaCard(Card):
             self.bg_color)        
         rl.end_texture_mode()
         self.texture_is_dirty = False
-
 
     def update(self, dt):
         if self._is_snapping_back:
