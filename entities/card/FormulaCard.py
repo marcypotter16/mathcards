@@ -1,32 +1,30 @@
 from asyncio import wrap_future
 from sys import exit
 
-from GameEntities.Card import Card
+from entities.card.Card import BaseCard, Card
 import pyray as rl
 
-from Vector import Vector2
-from typst_formula_renderer import FormulaResult, TypstFormulaRenderer
+from mathematics.vector import Vector2
+from tfr import FormulaResult, TypstFormulaRenderer
 
 class FormulaCard(Card):
-    def __init__(self, formula: str) -> None:
+    def __init__(self, formula: str, tfr: TypstFormulaRenderer | None = None) -> None:
         super().__init__(_dont_initialize_render_texture=True)
         self.width, self.height                                 = 225, 150
         self.dimensions                                         = Vector2(self.width, self.height)
         self.render_texture                                     = rl.load_render_texture(self.width, self.height)
         self.formula                                            = formula
-        self.formula_name:          str
-        self.tfr:                   TypstFormulaRenderer        = TypstFormulaRenderer(padding_pt=6)
+        self.tfr                                                = tfr if tfr is not None else TypstFormulaRenderer(padding_pt=4)
         self.formula_texture:       rl.Texture
         # Keep only synchronous setup here
 
     @classmethod
-    async def create(cls, formula: str, formula_name="placeholder"):
+    async def create(cls, formula: str, tfr=TypstFormulaRenderer(padding_pt=4)):
         # 1. Instantiate the object synchronously
-        instance = cls(formula)
-        instance.formula_name = formula_name
+        instance = cls(formula, tfr)
         
         # 2. Perform your async work
-        ff = instance.tfr.queue_formula(formula_name, formula, 250)
+        ff = instance.tfr.queue_formula(formula, 250)
         fr: FormulaResult = await wrap_future(ff)
         
         if not fr.success:
@@ -142,5 +140,5 @@ class FormulaCard(Card):
             )
 
     def __repr__(self) -> str:
-        return f"Formula {self.formula_name}: {self.formula}"
+        return f"{self.formula}"
     

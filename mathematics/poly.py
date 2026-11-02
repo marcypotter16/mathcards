@@ -1,9 +1,13 @@
 import math
-from typing import Callable, Dict, List
+from random import randint
+from typing import Callable, Dict, List, TypeVar
 from sympy import Poly
 from sympy.abc import x
+from sympy.core.cache import clear_cache
 
-from mathematics.Math import UnitaryRing
+from mathematics.base import UnitaryRing
+
+T_cov = TypeVar('T_cov', covariant=True)
 
 
 class Polynomial[T]:
@@ -34,9 +38,9 @@ class Polynomial[T]:
         return self.coefficients[self.deg]
 
     @property
-    def LM(self) -> Monomial[T]:
+    def LM(self) -> Polynomial[T]:
         """The leading monomial (e.g. LM(3x^2 + 2) = 3x^2)"""
-        return Monomial[T](self.coefficients[self.deg], self.deg, self.ring)
+        return self.monomial(self.coefficients[self.deg], self.deg, self.ring)
 
     @property
     def is_zero(self) -> bool:
@@ -44,16 +48,45 @@ class Polynomial[T]:
 
     def to_sympy(self, modulus: int | None = None) -> Poly:
         """Bridges a custom Polynomial to a SymPy Poly object."""
-        # Assuming self.coefficients is a list ordered from lowest to highest degree:
-        # We reverse it to match SymPy's highest-to-lowest expectation.
-        high_to_low_coeffs = list(reversed(self.coefficients))
+        clear_cache()
+        if not self.coefficients:
+            # Handle zero polynomial
+            return Poly([0], x)
+            
+        max_deg = max(self.coefficients.keys())
+        
+        # Build list from highest degree down to degree 0
+        high_to_low_coeffs = [self.coefficients.get(i, 0) for i in range(max_deg, -1, -1)]
         
         if modulus is not None:
+            # Using domain=GF(p) is the most robust way in SymPy for finite fields
             return Poly(high_to_low_coeffs, x, modulus=modulus)
+            
         return Poly(high_to_low_coeffs, x)
 
     def divides(self, other: Polynomial[T]) -> bool:
         return other.reduce_mod(self).is_zero
+
+    def evaluate(self, num: T) -> T:
+        res = self.ring.zero
+        for power, coeff in self.coefficients.items():
+            res = self.ring.add(res, self.ring.multiply(coeff, self.ring.pow(num, power)))
+        return res
+
+    @staticmethod
+    def monomial(coeff: T, power: int, coeff_ring: UnitaryRing[T]) -> Polynomial[T]:
+        return Polynomial({ power: coeff }, coeff_ring)
+
+    @staticmethod
+    def create_random(coeff_ring: UnitaryRing, deg: int = -1) -> Polynomial:
+        """NOTE: it may happen that LC is zero! So TODO fix this."""
+        if not hasattr(coeff_ring, "get_random_element"):
+            raise ValueError("coeff ring must implement get_random_element")
+        if deg < 0:
+            deg = randint(0, 10)
+        d = { power: coeff_ring.get_random_element() for power in range(deg + 1) } # type: ignore
+        p = Polynomial(d, coeff_ring)
+        return p
 
     def reduce_mod(self, mod: Polynomial[T]) -> Polynomial[T]:
         """
@@ -66,12 +99,13 @@ class Polynomial[T]:
         rem = Polynomial[T](self.coefficients, self.ring)
 
         while True:
-            val = self.ring.divides(mod.LC, rem.LC) # the number mod.LC / rem.LC if possible, else None
+            # print(f"rem = {rem}, is_zero? = {rem.is_zero}")
             if rem.is_zero or rem.deg < mod.deg:
                 break
+            val = self.ring.divides(mod.LC, rem.LC) # the number mod.LC / rem.LC if possible, else None
             if not val:
                 raise ValueError(f"LC of modulus does not divide LC of dividend: {mod.LC} vs {rem.LC}")
-            rem -= val * Monomial(self.ring.one, rem.deg - mod.deg, self.ring) * mod
+            rem -= val * self.monomial(self.ring.one, rem.deg - mod.deg, self.ring) * mod
 
         return rem
 
@@ -154,10 +188,11 @@ class Polynomial[T]:
         coef_tuple = tuple(sorted(self.coefficients.items()))
         return hash((coef_tuple, self.ring))
 
+    @property
     def typst_str(self) -> str:
         """
         Returns a Typst math-mode representation of the polynomial 
-        (e.g., 'x^2 + 3x + 1'), utilizing coeff.typst_str() if available.
+        (e.g., 'x^2 + 3x + 1'), utilizing coeff.typst_str if available.
         """
         if self.is_zero:
             return "0"
@@ -167,7 +202,7 @@ class Polynomial[T]:
         
         for i, deg in enumerate(sorted_degs):
             coeff = self.coefficients[deg]
-            c_str = coeff.typst_str() if hasattr(coeff, "typst_str") else str(coeff) # type: ignore
+            c_str = coeff.typst_str if hasattr(coeff, "typst_str") else str(coeff) # type: ignore
             
             # Format the variable part
             if deg == 0:
@@ -289,35 +324,18 @@ class Polynomial[T]:
             if deg == 0:
                 term_str = str(coeff)
             elif deg == 1:
-                term_str = f"{coeff}*x"
+                term_str = f"{coeff}*x" if coeff != self.ring.one else "x"
             else:
-                term_str = f"{coeff}*x^{deg}"
+                term_str = f"{coeff}*x^{deg}" if coeff != self.ring.one else f"x^{deg}"
                 
             parts.append(term_str)
-            
+
         if not parts:
             return "0"
             
         # Join them cleanly and fix double signs (e.g., "+ -" becomes "- ")
         combined = " + ".join(parts)
         return combined.replace("+ -", "- ")
-
-
-class MonicPolynomial[T](Polynomial[T]):
-    class NotMonic(ValueError):
-        pass
-    def __init__(self, coefficients: Dict[int, T], ring: UnitaryRing[T]) -> None:
-        super().__init__(coefficients, ring)
-        if not self.is_monic:
-            raise self.NotMonic(f"Polynomial {self} is not monic")
-
-class Monomial[T](Polynomial[T]):
-    class NotMonomial(ValueError):
-        pass
-    def __init__(self, coeff: T, power: int, ring: UnitaryRing[T]) -> None:
-        super().__init__({ power: coeff }, ring)
-        if not len(self.coefficients) <= 1:
-            raise self.NotMonomial(f"Polynomial {self} is not a monomial")
 
 if __name__ == "__main__":
     # Expression to parse

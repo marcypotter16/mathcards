@@ -3,11 +3,11 @@ from pathlib import Path
 import random
 from typing import Callable, Literal
 
-from GameEntities.Entity import Entity
+from entities.base import Entity
 import pyray as rl
 from dataclasses import dataclass
 
-from Vector import Vector2
+from mathematics.vector import Vector2
 from Settings import FONT_PATH
 from Tweener import Tween, TweenManager, TweenParams
 
@@ -79,7 +79,54 @@ class CardState:
         self._last_frame_dragged = self.is_dragged
         self._last_frame_hovered = self.is_hovered
 
-class Card(Entity):
+
+class BaseCard(Entity):
+    """Just the base abstract class for cards. Not to be instantiated."""
+    def __init__(self) -> None:
+        super().__init__()
+        self.z_index:   int
+        self.state:     CardState
+
+    def set_data(self, cd: CardData):
+        return NotImplemented
+    
+    def bake_texture(self):
+        return NotImplemented
+    
+    def get_rect(self):
+        return NotImplemented
+    
+    def get_center(self) -> Vector2:
+        return NotImplemented
+    
+    def get_center_after_hover(self) -> Vector2:
+        return NotImplemented
+    
+    def place_card(self, new_pos):
+        return NotImplemented
+    
+    def tween_center(self, new_pos: Vector2, dur=0.2, easing_type='ease-in-out-cubic', callback: Callable | None = None):
+        return NotImplemented
+    
+    def tween_rotation(self, new_rot: float, dur=0.2):
+        return NotImplemented
+        
+    def tween_scale(self, new_scale: float, dur=0.2):
+        return NotImplemented
+    
+    def snap_back(self):
+        return NotImplemented
+    
+    def update(self, dt):
+        return NotImplemented
+    
+    def render(self, logical_texture: rl.RenderTexture):
+        return NotImplemented
+    
+    def unload(self):
+        return NotImplemented
+
+class Card(BaseCard):
     def __init__(self, rank: int = 0, suit: Suit = Suit.NONE, card_data: CardData | None = None, _dont_initialize_render_texture=False) -> None:
         if card_data is not None:
             self.card_data = card_data

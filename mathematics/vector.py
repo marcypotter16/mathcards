@@ -107,7 +107,7 @@ class Vector2:
         return self._x * other.x + self._y * other.y
 
     def cross(self, other) -> float:
-        """Returns the (signed) magnitude of the cross product vector"""
+        """Returns the (signed) magnitude of the cross product mathematics.vector"""
         return rl.vector2_cross_product(self.raylib_ref, other)
 
     def mag(self) -> float:

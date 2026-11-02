@@ -2,6 +2,7 @@
 
 from math import ceil
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar
+from pyray import Rectangle, Vector2
 
 T = TypeVar("T")
 
@@ -20,10 +21,22 @@ class AlgebraicStructure[T]:
     def is_finite(self) -> bool:
         return NotImplemented
 
+    @property
     def typst_str(self) -> str:
         return NotImplemented
 
+    def get_random_element(self) -> T:
+        return NotImplemented
+
     def __contains__(self, item):
+        return NotImplemented
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, AlgebraicStructure):
+            return False
+        return self.typst_str == value.typst_str
+
+    def __hash__(self) -> int:
         return NotImplemented
 
     @staticmethod
@@ -178,6 +191,15 @@ class UnitaryRing[T](AbelianGroup[T]):
             return self.product[pair]
         return self.product(e1, e2)
 
+    def pow(self, e1: T, exp: int) -> T:
+        if exp == 0:
+            return self.one # Assuming your ring has a multiplicative identity 'one'
+        
+        res = e1
+        for _ in range(exp - 1):
+            res = self.multiply(res, e1)  # Multiply by the original base, NOT res by res!
+        return res
+
     def mult_inv(self, e1: T) -> T | None:
         for el in self.elements:
             if self.multiply(e1, el) == self.one:
@@ -189,6 +211,9 @@ class UnitaryRing[T](AbelianGroup[T]):
 
     def is_field(self) -> bool:
         return all(self.is_invertible(el) for el in self.elements if el != self.zero)
+
+    def is_domain(self) -> bool:
+        return NotImplemented
 
     def validate(self) -> None:
         super().validate()
@@ -234,8 +259,14 @@ class Ideal[T](AbelianGroup[T]):
     def is_maximal(self) -> bool:
         return NotImplemented
     
+    @property
     def typst_str(self) -> str:
-        return f"({', '.join(gen.typst_str() for gen in self.generators)})" # type: ignore
+        return f"({', '.join(gen.typst_str for gen in self.generators)})" # type: ignore
+
+    def get_random_element_in_complementary(self) -> T:
+        """Useful for localization at prime ideals, where invertible elements are from the complementary of the ideal."""
+        return NotImplemented
+    
     def __repr__(self) -> str:
         return f"({self.generators})"
 
@@ -246,13 +277,17 @@ class PrincipalIdeal[T](Ideal[T]):
         self.generators = { generator }
         self.generator = generator
 
+    @property   
     def typst_str(self) -> str:
         if hasattr(self.generator, "typst_str"):
-            return f"({self.generator.typst_str()})" # type: ignore
+            return f"({self.generator.typst_str})" # type: ignore
         raise ValueError("Generator for some reason doesn't have typst str method")
 
     def __repr__(self) -> str:
         return f"({self.generator})"
+
+class QuotGroup(AdditiveGroup):
+    pass
 
 # Generic over the *element types* (e.g., int, int)
 class Morphism[SourceElementT, TargetElementT]:
@@ -314,6 +349,8 @@ def factorize(n: int) -> dict[int, int]:
         
     return factors
 
+def get_rect_center(r: Rectangle) -> Vector2:
+    return Vector2(r.x + r.width / 2, r.y + r.height / 2)
 
 if __name__ == "__main__":
     elements = {0, 1}

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Generic, Literal, Protocol, TypeVar, Any, runtime_checkable
 
-from Vector import Vector2
+from mathematics.vector import Vector2
 
 T_contra = TypeVar("T_contra", contravariant=True)
 T_co = TypeVar("T_co", covariant=True)
