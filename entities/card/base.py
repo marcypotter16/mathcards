@@ -51,13 +51,14 @@ class BaseCard(Entity, ABC):
         super().__init__()
         self.card_id                                = card_id if card_id is not None else self._next_id()
         self.z_index:               int
-        self.state:                 CardState
+        self.state:                 CardState       = CardState()
         self.center:                Vector2         = Vector2(0, 0)
         self.center_before_drag:    Vector2         = Vector2(0, 0)
         self.rotation:              float           = 0.0
         self.scale:                 float           = 1.0
         self.rot_when_hov:          float           = -9.0
         self.scale_when_hov:        float           = 1.1
+        self.back_tex:              rl.Texture
 
         self.tm:                    TweenManager    = TweenManager()
     
@@ -87,9 +88,12 @@ class BaseCard(Entity, ABC):
         self.tm.add_tween(Tween(TweenParams(self, "scale", new_scale, dur=dur, easing_type='ease-out-cubic')), kill_existing=True)
     
     def snap_back(self):
-        self.tween_center(self.center_before_drag, dur=0.8, callback=lambda: setattr(self, '_is_snapping_back', False))
+        self.tween_center(self.center_before_drag, dur=0.8, callback=lambda: setattr(self.state, 'snapping_back', False))
+        self.state.snapping_back = True
         if self.scale != 1.0:
             self.tween_scale(1.0)
+        if self.rotation != 0.0:
+            self.tween_rotation(0.0)
     
     def update(self, dt):
         self.tm.update(dt)
@@ -107,6 +111,8 @@ class BaseCard(Entity, ABC):
 
 @dataclass
 class CardState:
+    flipped:                bool = False
+    snapping_back:          bool = False
     is_dragged:             bool = False
     is_hovered:             bool = False
     started_dragging:       bool = False

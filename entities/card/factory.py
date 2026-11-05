@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Any, Callable
 
+from game import Game
+
 if TYPE_CHECKING:
     from entities.card.base import BaseCard
 
@@ -8,16 +10,16 @@ from entities.card.eor_card import EORCard
 from entities.card.op_card import OpCard
 from tfr import TypstFormulaRenderer
 
-_FACTORIES: dict[type, Callable[[Any, TypstFormulaRenderer], BaseCard]] = {
+_FACTORIES: dict[type, Callable[[Any, Game], BaseCard]] = {
     ElementCardSer:  EORCard.from_ser,
     OperatorCardSer: OpCard.from_ser,
 }
 
-def card_from_ser(cd: CardSer, tfr: TypstFormulaRenderer) -> BaseCard:
+def card_from_ser(cd: CardSer, game: Game) -> BaseCard:
     factory = _FACTORIES.get(type(cd))
     if factory is None:
         raise ValueError(f"unknown card type: {type(cd).__name__}")
-    return factory(cd, tfr)
+    return factory(cd, game)
 import itertools
 _card_counter = itertools.count(1)
 

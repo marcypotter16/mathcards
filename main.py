@@ -3,6 +3,7 @@ from concurrent.futures import Future
 
 import pyray as rl
 
+from Settings import FONT_PATH, WINDOW
 from entities.GameUI import GameUI
 from states.menu import MainMenuState
 from states.morphism import MorphismConstructorState
@@ -12,18 +13,10 @@ from mathematics.ring import QQ, ZZ, IntegerIdeal, Localization, PolyRing, PolyR
 from states.test import TestState
 from tfr import FormulaResult, TypstFormulaRenderer
 
+SWW, LWW, SWH, LWH = WINDOW["S_WIDTH"], WINDOW["L_WIDTH"], WINDOW["S_HEIGHT"], WINDOW["L_HEIGHT"]
+SCREEN_SCALING = (float(SWW) / LWW, float(SWH) / LWH)
 
-# LOGICAL DIMENSIONS
-L_WINDOW_WIDTH = 1920
-L_WINDOW_HEIGHT = 1080
-
-# SCREEN DIMENSIONS
-S_WINDOW_WIDTH = 1920
-S_WINDOW_HEIGHT = 1080
-
-SCREEN_SCALING = (float(S_WINDOW_WIDTH) / L_WINDOW_WIDTH, float(S_WINDOW_HEIGHT) / L_WINDOW_HEIGHT)
-
-BACKGROUND = rl.Color(24, 26, 32, 255)
+BACKGROUND = WINDOW["BG_COLOR"]
 
 game:       Game
 
@@ -36,14 +29,15 @@ async def main() -> None:
     rl.set_config_flags(rl.ConfigFlags.FLAG_WINDOW_RESIZABLE | rl.ConfigFlags.FLAG_VSYNC_HINT | rl.ConfigFlags.FLAG_MSAA_4X_HINT)
     rl.set_trace_log_level(5)
     rl.set_target_fps(120)
-    rl.init_window(S_WINDOW_WIDTH, S_WINDOW_HEIGHT, "Mathcards")
+    rl.init_window(SWW, SWH, "Mathcards")
     icon            = rl.load_image("Generated icon.png")
     rl.set_window_icon(icon)
-    LOGICAL_TEXTURE = rl.load_render_texture(L_WINDOW_WIDTH, L_WINDOW_HEIGHT)
+    LOGICAL_TEXTURE = rl.load_render_texture(LWW, LWH)
     tfr = TypstFormulaRenderer()
-    global game
-    game = Game({"tfr": tfr})
+    game = Game(tfr)
     game.init()
+
+    GAME_FONT = rl.load_font(FONT_PATH)
     # game_ui         = GameUI()
     # init_cards()
     # formula_card    = await FormulaCard.create("$ZZ[x]/(x^2)$", tfr=tfr)
@@ -80,7 +74,7 @@ async def main() -> None:
             # mc.render()
             game.render(LOGICAL_TEXTURE)
             rl.end_texture_mode()
-            source_rect = rl.Rectangle(0, 0, L_WINDOW_WIDTH, -L_WINDOW_HEIGHT)
+            source_rect = rl.Rectangle(0, 0, LWW, -LWH)
             dest_rect = rl.Rectangle(0, 0, rl.get_screen_width(), rl.get_screen_height())
             rl.draw_texture_pro(LOGICAL_TEXTURE.texture, source_rect, dest_rect, rl.Vector2(0, 0), 0, rl.WHITE)
             rl.end_drawing()

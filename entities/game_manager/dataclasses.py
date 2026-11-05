@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from entities.card.base import CardId, CardSer, BaseCard
 from entities.card.factory import card_from_ser, card_ser_from_dict
+from game import Game
 from tfr import TypstFormulaRenderer
 
 from entities.hand import Hand
@@ -30,47 +31,6 @@ class ItemSer:
         return cls(
             id = d["id"]
         )
-
-class ActionType(Enum):
-    PLAY_CARD_FROM_HAND     = auto()
-    ATTACK_TARGET           = auto()
-    END_TURN                = auto()
-    DRAW_CARD               = auto()
-    CHANGE_RING             = auto()
-    DISCARD_TO_DRAW         = auto()
-
-@dataclass
-class GameAction:
-    action_type:            ActionType
-    player_id:              PlayerId                          # Who is performing the action ('player_1', 'opponent', etc.)
-    payload:                dict[str, Any]  = field(default_factory=dict)  # Card IDs, target slots, coordinates, etc.
-    schema_version:         int             = 1
-
-#     def serialize(self) -> dict:
-#         """Converts action to a JSON-serializable dictionary for networking."""
-#         return {
-#             "action_type": self.action_type.name,
-#             "player_id": self.player_id,
-#             "payload": self.payload,
-#             "schema_version": self.schema_version
-#         }
-
-#     @classmethod
-#     def deserialize(cls, data: dict) -> "GameAction":
-#         """Reconstructs an action received from the server."""
-#         return cls(
-#             action_type=ActionType[data["action_type"]],
-#             player_id=data["player_id"],
-#             payload=data["payload"],
-#             schema_version=data["schema_version"]
-#         )
-
-# @dataclass
-# class GameActionSer:
-#     action_type:        ActionType
-#     player_id:          PlayerId
-
-
 
 @dataclass
 class GameState:
@@ -99,9 +59,9 @@ class GameState:
         )
 
     @staticmethod
-    def deserialize(gss: GameStateSer, tfr: TypstFormulaRenderer) -> 'GameState':
+    def deserialize(gss: GameStateSer, game: Game) -> 'GameState':
         cards = {
-            cid: card_from_ser(ser, tfr) for cid, ser in gss.cards.items()
+            cid: card_from_ser(ser, game) for cid, ser in gss.cards.items()
         }
         if cards:
             BaseCard._set_id_counter(max(cards.keys()) + 1)
@@ -178,9 +138,9 @@ class PlayerState:
         return PlayerState(
             id      = pss.id,
             board   = Board.deserialize(pss.board, cards),
-            hand    = Hand.deserialize(pss.hand, cards),
-            deck    = Deck.deserialize(pss.deck, cards),
-            discard = Deck.deserialize(pss.discard, cards),
+            hand    = Hand.deserialize(pss.hand),
+            deck    = Deck.deserialize(pss.deck),
+            discard = Deck.deserialize(pss.discard),
             money   = pss.money,
             items   = [Item.deserialize(itemser) for itemser in pss.items]
         )
@@ -221,7 +181,7 @@ class GameView:
     n_actions_left:  int
 
     @staticmethod
-    def from_ser(gss: GameStateSer, viewer: PlayerId) -> "GameView":
+    def to_view(gss: GameStateSer, viewer: PlayerId) -> "GameView":
         return GameView(
             me=viewer,
             players={pid: PlayerView.to_view(pss, viewer) for pid, pss in gss.players.items()},
@@ -231,6 +191,7 @@ class GameView:
             turn=gss.turn,
             n_actions_left=gss.n_actions_left,
         )
+
 
 @dataclass(frozen=True)
 class PlayerView:

@@ -1,30 +1,27 @@
+from typing import TYPE_CHECKING
+
 from pyray import RenderTexture
 
-from Settings import WINDOW
-from entities.board import Board
-from entities.card.eor_card import EORCard
-from entities.card.op_card import OpCard
-from entities.game_manager.dataclasses import OperatorType
-from entities.slot import Slot
-from game import Game
-from mathematics.poly import Polynomial
-from mathematics.ring import QQ, ZZ, Frac, PolyRing, ZZn
+from entities.card.op_card import OpCard, OperatorType
+from entities.card.placeholder import PlaceholderCard
+from entities.game_manager.dataclasses import GameView
+from entities.renderer import GameViewRenderer
+if TYPE_CHECKING:
+    from game import Game
 from mathematics.vector import Vector2
+from serialization_test import make_game_state
 from states.base import State
 
 
 class TestState(State):
     def __init__(self, game: Game, data=None) -> None:
         super().__init__(game, data)
-        # self.card = EORCard(ZZn(6), 12, game.tfr)
-        self.center = Vector2(WINDOW["L_WIDTH"] / 2, WINDOW["L_HEIGHT"] / 2)
-        self.var = Board(game.tfr)
-        self.var.place_center(self.center)
-        for i in range(2):
-            for j in range(3):
-                self.var.slotgrid[(i, j)].put_card(OpCard(OperatorType.INVERT, game.tfr))
-        ser = self.var.serialize()
-        print(ser, "\n", self.var.deserialize(ser, game.tfr))
+        gs = make_game_state()
+        gss = gs.serialize()
+        viewer = "p1" # p2
+        gw = GameView.to_view(gss, viewer)
+        self.var = GameViewRenderer(gw, gs.cards)
+        # self.var = PlaceholderCard(Vector2(500, 500))
 
 
     def update(self, dt: float) -> None:

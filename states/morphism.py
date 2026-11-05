@@ -30,6 +30,7 @@ class MorphismConstructorState(State):
         codomain: CommUnitRing,
         on_complete: Callable[[dict[Any, Any]], None] | None = None,
     ) -> None:
+        
         super().__init__(game)
         self.domain = domain
         self.codomain = codomain

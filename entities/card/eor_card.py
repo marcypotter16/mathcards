@@ -1,4 +1,6 @@
+from Settings import COLOR_FRACTION, COLOR_INTEGER, COLOR_POLYNOMIAL, COLOR_ZMOD, get_complementary_color, get_dimmed_color
 from entities.card.base import BaseCard
+from game import Game
 from mathematics.base import CommUnitRing
 from mathematics.serialization import deserialize_element, deserialize_ring, serialize_element, serialize_ring
 from mathematics.vector import Vector2
@@ -17,13 +19,15 @@ def get_crop_header(base_font_pt) -> str:
 class EORCard[T](BaseCard):
     """EOR = Element Of Ring: a card like "x" in ZZ[x]"""
 
-    DIMENSIONS = Vector2(225, 150)
+    # --- Vertical Layout ---
+    DIMENSIONS = Vector2(150, 225)
 
-    def __init__(self, ring: CommUnitRing[T], element: T, tfr: TypstFormulaRenderer, card_id: int | None = None) -> None:
+    def __init__(self, game: Game, ring: CommUnitRing[T], element: T, card_id: int | None = None) -> None:
         super().__init__(card_id)
+        # self.game = game
         self.ring = ring
         self.base_value = self.current_value = element
-        self.tfr = tfr
+        self.tfr = game.tfr
 
         base_font_pt = 24.0
         ppi = 100
@@ -43,13 +47,17 @@ class EORCard[T](BaseCard):
         # --- Visual Config ---
         self.border_thickness = 8
         self.border_color = rl.BLACK
-        self.bg_color = rl.RAYWHITE
-        self.el_bg_color = rl.RAYWHITE
-        self.ring_bg_color = rl.GRAY
-        
-        # Size for the formula in the center
-        self.formula_size = 100 
-
+        self.bg_color: rl.Color
+        match type(self.current_value).__name__:
+            case "Polynomial":
+                self.bg_color = COLOR_POLYNOMIAL
+            case "Frac":
+                self.bg_color = COLOR_FRACTION
+            case "ZZn":
+                self.bg_color = COLOR_ZMOD
+            case _:
+                self.bg_color = COLOR_INTEGER
+            
         # --- Physics/State (from BaseCard) ---
         self.center = Vector2(100, 200)
         self.center_rest = Vector2(100, 200)
@@ -77,6 +85,23 @@ class EORCard[T](BaseCard):
             self.el_tex = rl.load_texture(str(self.el_ff.result().png_path.resolve()))
             rl.set_texture_filter(self.el_tex, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
             self.texture_is_dirty = True
+
+        if self.state.snapping_back:
+            return
+
+        if self.state.started_hovering:
+            self.tween_center(self.get_center_after_hover())
+            self.tween_rotation(self.rot_when_hov)
+
+        if self.state.ended_hovering:
+            self.tween_center(self.center_rest)
+            self.tween_rotation(0.0)
+
+        if self.state.is_dragged:
+            self.center = Vector2.from_raylib(rl.vector2_lerp(self.center.raylib_ref, rl.get_mouse_position(), 22.0 * dt))
+
+        if self.state.ended_dragging:
+            self.snap_back()
 
     def _draw_fitted_texture(self, tex: rl.Texture, bounding_box: rl.Rectangle):
         """Draws a texture centered in a bounding box, scaling down only if it overflows."""
@@ -118,42 +143,35 @@ class EORCard[T](BaseCard):
         rl.clear_background(rl.BLANK)
         
         bt = self.border_thickness
-        W, H = self.DIMENSIONS.x, self.DIMENSIONS.y
-        header_h = 60 
+        W, H = self.DIMENSIONS.x - bt, self.DIMENSIONS.y - bt
+        header_h = 50 # Slightly shorter header to give more room to the main math
 
         # 1. Draw Outer Border
         rl.draw_rectangle_rounded(rl.Rectangle(0, 0, W + bt, H + bt), 0.1, 0, self.border_color)
 
-        # 2. Draw Ring Background (Header)
-        # We need to clip this to the top rounded corners, so we draw a rounded rect
-        # and then draw a flat rect over the bottom half of it to square it off.
-        rl.draw_rectangle_rounded(rl.Rectangle(0, 0, W, H), 0.1, 4, self.ring_bg_color)
-        # rl.draw_rectangle_rounded(rl.Rectangle(0, header_h * 0.5, W, header_h * 0.5), 0.1, 0, self.ring_bg_color)
+        x = y = bt / 2
 
-        # 3. Draw Element Background (Body)
-        body_margin = 10
-        body_y = header_h + 5
-        body_w = W - body_margin * 2
-        body_h = H - body_y - body_margin
-        body_rect = rl.Rectangle(body_margin, body_y, body_w, body_h)
-        
-        rl.draw_rectangle_rounded(body_rect, 0.1, 4, self.el_bg_color)
+        # 2. Draw Full Card Background
+        rl.draw_rectangle_rounded(rl.Rectangle(x, y, W, H), 0.1, 4, self.bg_color)
 
+        # 3. Define Boxes
+        # Top left (Element mini), Top right (Ring), and Center Body (Element main)
+        top_left_box  = rl.Rectangle(x, y, W * 0.5, header_h)
+        top_right_box = rl.Rectangle(x + W * 0.5, y + 0, W * 0.5, header_h)
+        body_rect     = rl.Rectangle(x + 10, y + header_h, W - 20, H - header_h - 10)
 
-        # 5. Draw Separator Line
-        # rl.draw_line(int(0), int(header_h), int(W), int(header_h), self.border_color)
+        rl.draw_line(10, int(top_left_box.y + top_left_box.height), int(W-10), int(top_left_box.y + top_left_box.height), get_dimmed_color(self.bg_color))
 
-        # 6. Draw Ring Formula
-        if self.ring_tex is not None:
-            header_box = rl.Rectangle(0, 0, W, header_h)
-            self._draw_fitted_texture(self.ring_tex, header_box)
-
-        # 7. Draw Element Formula
+        # 4. Draw Formulas
         if self.el_tex is not None:
+            # Top-Left (mini)
+            self._draw_fitted_texture(self.el_tex, top_left_box)
+            # Center (main)
             self._draw_fitted_texture(self.el_tex, body_rect)
 
-        # 8. Draw Inner Box Border
-        rl.draw_rectangle_rounded_lines(body_rect, 0.1, 0, self.border_color)
+        if self.ring_tex is not None:
+            # Top-Right
+            self._draw_fitted_texture(self.ring_tex, top_right_box)
 
         rl.end_texture_mode()
         self.texture_is_dirty = False
@@ -188,7 +206,7 @@ class EORCard[T](BaseCard):
         return ElementCardSer(
             id                  = self.card_id,
             base_element_ser    = serialize_element(self.base_value),
-            current_element_ser = serialize_element(self.current_value),  # or self.current_element
+            current_element_ser = serialize_element(self.current_value),
             ring_ser            = serialize_ring(self.ring),
         )
 
@@ -197,20 +215,18 @@ class EORCard[T](BaseCard):
             raise ValueError("EORCard.apply: missing ring_ser")
 
         new_ring = deserialize_ring(sd.ring_ser)
-        # element must be interpreted *in the new ring*, so deserialize after the ring
         new_current = (
             deserialize_element(sd.current_element_ser, new_ring)
             if sd.current_element_ser is not None
             else None
         )
 
-        ring_changed   = (new_ring != self.ring)   # or serialize_ring(new_ring) != serialize_ring(self.ring)
+        ring_changed   = (new_ring != self.ring)
         value_changed  = (new_current != self.current_value)
 
         self.ring = new_ring
         if new_current is not None:
             self.current_value = new_current
-        # base_value is identity-ish; only refresh if you want the card to reflect it
         if sd.base_element_ser is not None:
             self.base_value = deserialize_element(sd.base_element_ser, new_ring)
 
@@ -218,21 +234,19 @@ class EORCard[T](BaseCard):
             self._requeue_formulas()
 
     @classmethod
-    def from_ser(cls, cd: ElementCardSer, tfr: TypstFormulaRenderer) -> "EORCard":
+    def from_ser(cls, cd: ElementCardSer, game: Game) -> "EORCard":
         if cd.ring_ser is None or cd.base_element_ser is None:
             raise ValueError("EORCard.from_ser: missing ring_tag / base_value")
         ring    = deserialize_ring(cd.ring_ser)
         element = deserialize_element(cd.base_element_ser, ring)
-        card    = cls(ring, element, tfr, card_id=cd.id)
+        card    = cls(game, ring, element, card_id=cd.id)
         curr    = deserialize_element(cd.current_element_ser, ring)
         if card.current_value != curr:
             card._requeue_formulas()
         card.current_value = curr
         return card
-        
 
     def _requeue_formulas(self) -> None:
-        # Same body as the two queue_formula calls in __init__, factored out.
         crop_header = get_crop_header(24)
         ring_str = getattr(self.ring, "typst_str", str(self.ring))
         self.ring_ff = self.tfr.queue_formula(f"${ring_str}$", ppi=100, custom_header=crop_header)

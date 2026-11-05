@@ -1,3 +1,5 @@
+from typing import Sequence
+
 import pyray as rl
 from entities.card.base import BaseCard
 from entities.base import Entity
@@ -91,6 +93,6 @@ class CardManager(Entity):
             self.sort_by_z_index()
             self._needs_sorting = False
     
-    def render(self, logical_texture: rl.RenderTexture):
+    def render(self, logical_texture: rl.RenderTexture | None = None):
         for card in self.cards:
             card.render(logical_texture)

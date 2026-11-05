@@ -8,10 +8,11 @@ from tfr import TypstFormulaRenderer
 
 
 class Game:
-    def __init__(self, data={}) -> None:
+    def __init__(self, tfr: TypstFormulaRenderer) -> None:
         self.state_stack: list[State] = []
-        self.tfr: TypstFormulaRenderer = data.get("tfr")
-        self.font: rl.Font = rl.get_font_default()
+        self.tfr: TypstFormulaRenderer = tfr
+        # self.font: rl.Font = data.get("font", rl.get_font_default())
+        # rl.set_texture_filter(self.font.texture, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
 
     def init(self) -> None:
         """To be called after raylib initialization"""

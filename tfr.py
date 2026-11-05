@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_DNS, uuid5
 
+import pyray as rl
+
+from Settings import FONT_PATH
+
 
 @dataclass(frozen=True)
 class FormulaResult:
@@ -34,6 +38,10 @@ class TypstFormulaRenderer:
             thread_name_prefix="typst",
         )
         self.pending: dict[str, Future[FormulaResult]] = {}
+        
+        self.font = rl.load_font(str(FONT_PATH))
+        if self.font.texture.id == 0:
+            print("WARNING: Raylib failed to load the font!")
 
     def compile_formula(
         self,

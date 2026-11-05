@@ -3,8 +3,13 @@ import json
 from dataclasses import is_dataclass, asdict
 from typing import TYPE_CHECKING
 
+from pyray import load_font
+
+from Settings import FONT_PATH
 from entities.deck import Deck
+from entities.game_manager.actions import DrawCardAction, EndTurnAction, PlayCardAction
 from entities.hand import Hand
+from game import Game
 from mathematics.base import Category
 
 if TYPE_CHECKING:
@@ -23,6 +28,7 @@ from mathematics.serialization import serialize_ring, deserialize_ring
 from tfr import TypstFormulaRenderer
 
 TFR = TypstFormulaRenderer()
+GAME = Game(TFR)
 
 
 # ---------- helpers ----------
@@ -72,12 +78,12 @@ def test_polyringquot_roundtrip():
 
 def test_opcard_roundtrip():
     for op in [OperatorType.ADD, OperatorType.INVERT, OperatorType.MUL, OperatorType.SUB]:
-        card = OpCard(op, TFR)
+        card = OpCard(GAME, op)
         ser = card.serialize()
         assert_json_roundtrip(asdict(ser))
-        rebuilt = card_from_ser(ser, TFR)
+        rebuilt = card_from_ser(ser, GAME)
         assert rebuilt.serialize() == ser
-        assert rebuilt.op_type == op
+        assert rebuilt.op_type == op # type: ignore
         assert rebuilt.card_id == card.card_id
 
 
@@ -85,10 +91,10 @@ def test_eorcard_roundtrip():
     rings = [ZZ(), QQ(), ZZn(7), PolyRing(QQ())]
     for r in rings:
         el = r.one      # or r.get_random_element() if available
-        card = EORCard(r, el, TFR)
+        card = EORCard(GAME, r, el)
         ser = card.serialize()
         assert_json_roundtrip(asdict(ser))
-        rebuilt = card_from_ser(ser, TFR)
+        rebuilt = card_from_ser(ser, GAME)
         assert rebuilt.serialize() == ser
         assert rebuilt.card_id == card.card_id
 
@@ -100,7 +106,7 @@ def test_card_factory_unknown_type():
     class Unknown:
         id: int
     try:
-        card_from_ser(Unknown(1), TFR)
+        card_from_ser(Unknown(1), GAME) # type: ignore
     except ValueError:
         return
     assert False, "expected ValueError for unknown CardSer"
@@ -110,10 +116,9 @@ def test_card_factory_unknown_type():
 
 def make_board_with_cards():
     b = Board()
-    tfr = TFR
     cards = {
-        1: OpCard(OperatorType.ADD, tfr, card_id=1),
-        2: EORCard(ZZ(), ZZ().one, tfr, card_id=2),
+        1: OpCard(GAME, OperatorType.ADD, card_id=1),
+        2: EORCard(GAME, ZZ(), ZZ().one, card_id=2),
     }
     b.slotgrid[(0, 0)].content = cards[1]
     b.slotgrid[(0, 1)].content = cards[2]
@@ -159,11 +164,34 @@ def test_board_apply_unknown_id():
 
 def make_game_state() -> GameState:
     tfr = TFR
+    g = GAME
     cards: dict[int, BaseCard] = {
-        1: OpCard(OperatorType.ADD, tfr, card_id=1),
-        2: OpCard(OperatorType.MUL, tfr, card_id=2),
-        3: EORCard(ZZ(), ZZ().one, tfr, card_id=3),
-        4: EORCard(QQ(), QQ().one, tfr, card_id=4),
+        1: OpCard(g, OperatorType.ADD, card_id=1),
+        2: OpCard(g, OperatorType.MUL, card_id=2),
+        3: EORCard(
+            g,
+            PolyRingQuot(
+                ZZ(), 
+                PrincipalPolyIdeal(
+                    Polynomial({2: 1}, ZZ()),
+                    ZZ()
+                    )
+                ), 
+            Polynomial({1: 2, 0: 5}, ZZ()), card_id=3),
+        4: EORCard(g, QQ(), QQ().one, card_id=4),
+        5: OpCard(g, OperatorType.ADD, card_id=1),
+        6: OpCard(g, OperatorType.MUL, card_id=2),
+        7: EORCard(
+            g,
+            PolyRingQuot(
+                ZZ(), 
+                PrincipalPolyIdeal(
+                    Polynomial({2: 1}, ZZ()),
+                    ZZ()
+                    )
+                ), 
+            Polynomial({3: 4, 2: 5}, ZZ()), card_id=3),
+        8: EORCard(g, QQ(), QQ().one, card_id=4),
     }
     # player 1: board has card 1, hand has card 3, deck has card 4
     p1 = PlayerState(
@@ -176,14 +204,17 @@ def make_game_state() -> GameState:
         items=[],
     )
     p1.board.slotgrid[(0, 0)].content = cards[1]
-    p1.hand.insert_card(cards[3], 0)
-    p1.deck.cards = [cards[4]]
+    p1.hand.insert_card(cards[3].card_id)
+    p1.hand.insert_card(cards[2].card_id)
+    p1.deck.cards = [cards[4].card_id]
 
     # player 2: empty board, hand has card 2
     p2 = PlayerState(
         id="p2", board=Board(), hand=Hand(), deck=Deck(), discard=Deck(), money=10, items=[],
     )
-    p2.hand.insert_card(cards[2], 0)
+    p2.hand.insert_card(cards[6].card_id, 0)
+    p2.hand.insert_card(cards[7].card_id, 0)
+    p2.deck.cards = [cards[8].card_id]
 
     return GameState(
         players={"p1": p1, "p2": p2},
@@ -203,7 +234,7 @@ def test_gamestate_roundtrip():
     # JSON compatibility of the whole envelope
     assert_json_roundtrip(asdict(ser))
 
-    gs2 = GameState.deserialize(ser, TFR)
+    gs2 = GameState.deserialize(ser, GAME)
     ser2 = gs2.serialize()
     assert ser2 == ser, f"gamestate mismatch\n in:  {ser}\n out: {ser2}"
 
@@ -211,7 +242,7 @@ def test_gamestate_roundtrip():
 def test_gamestate_id_counter_advanced():
     gs = make_game_state()
     ser = gs.serialize()
-    gs2 = GameState.deserialize(ser, TFR)
+    gs2 = GameState.deserialize(ser, GAME)
     # draw a new card id and assert it doesn't collide with existing
     from entities.card.base import BaseCard
     new_id = BaseCard._next_id()
@@ -221,16 +252,18 @@ def test_gamestate_id_counter_advanced():
 def test_gameview_redaction():
     gs = make_game_state()
     ser = gs.serialize()
-    view_p1 = GameView.from_ser(ser, viewer="p1")
-    view_p2 = GameView.from_ser(ser, viewer="p2")
+    view_p1 = GameView.to_view(ser, viewer="p1")
+    view_p2 = GameView.to_view(ser, viewer="p2")
 
     # my own hand is visible
     assert view_p1.players["p1"].hand is not None
     # opponent hand is hidden
     assert view_p2.players["p1"].hand is None
-    # sizes are always visible
-    assert view_p1.players["p1"].hand_size == 1
-    assert view_p2.players["p1"].hand_size == 1
+    
+    # ← FIX: p1 has 2 cards in hand (cards[3] and cards[2])
+    assert view_p1.players["p1"].hand_size == 2, f"expected 2, got {view_p1.players['p1'].hand_size}"
+    assert view_p2.players["p1"].hand_size == 2
+    
     # boards/discard are public
     assert view_p2.players["p1"].board == view_p1.players["p1"].board
     # card face data is shared (needed for rendering)
@@ -242,31 +275,45 @@ def test_gamestate_json_roundtrip():
     ser = gs.serialize()
     wire = json.loads(json.dumps(asdict(ser)))
     loaded = GameStateSer.from_dict(wire)
-    gs2 = GameState.deserialize(loaded, TFR)
+    gs2 = GameState.deserialize(loaded, GAME)
     assert gs2.serialize() == ser
+
+def test_action_replay():
+    gs = make_game_state()
+    actions = [
+        DrawCardAction(player_id="p1"),
+        PlayCardAction(player_id="p1", card_id=2),
+        EndTurnAction(player_id="p1"),
+        DrawCardAction(player_id="p2")
+    ]
+    for a in actions:
+        ok, reason = a.can_apply(gs)
+        assert ok, reason
+        a.apply(gs)
+
+    # serialize the resulting state, deserialize, verify identical
+    ser = gs.serialize()
+    gs2 = GameState.deserialize(ser, GAME)
+    assert gs2.serialize() == ser
+
+    # and: replaying the same actions from a fresh state gives the same result
+    gs3 = make_game_state()
+    for a in actions:
+        a.apply(gs3)
+    assert gs3.serialize() == ser
 
 # ---------- run ----------
 
 if __name__ == "__main__":
     tests = [v for k, v in globals().items() if k.startswith("test_") and callable(v)]
     failed = 0
+    # at the bottom of the file, inside `if __name__ == "__main__":`
     for t in tests:
         try:
             t()
             print(f"PASS {t.__name__}")
-        except AssertionError as e:
+        except Exception as e:   # <-- FIX: catch all exceptions
             failed += 1
-            print(f"FAIL {t.__name__}: {e}")
+            print(f"FAIL {t.__name__}: {type(e).__name__}: {e}")
     print(f"\n{len(tests) - failed}/{len(tests)} passed")
     raise SystemExit(0 if failed == 0 else 1)
-    # from enum import StrEnum
-    # class Category(StrEnum):
-    #     AbGp = "Abelian_Groups"
-    #     CRings = "Commutative_Rings"
-
-    # import json
-    # print(json.dumps(Category.CRings))          # "Commutative_Rings" (value)
-    # print(str(Category.CRings))                 # "Commutative_Rings" (value)
-    # print(repr(Category.CRings))                # <Category.CRings: 'Commutative_Rings'>
-    # print(Category.CRings.name)                 # "CRings"
-    # print(Category.CRings.value)                # "Commutative_Rings"
