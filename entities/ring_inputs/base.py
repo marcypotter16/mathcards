@@ -8,7 +8,7 @@ from typing import Any, Callable
 import pyray as rl
 
 from entities.base import Entity
-from mathematics.base import UnitaryRing
+from mathematics.base import CommUnitRing
 from tfr import TypstFormulaRenderer
 
 
@@ -40,7 +40,7 @@ class BaseElementInput(Entity):
 
     def __init__(
         self,
-        ring:          UnitaryRing,
+        ring:          CommUnitRing,
         anchor_rect:   rl.Rectangle | None,
         gen_name:      str,
         initial_value: Any,

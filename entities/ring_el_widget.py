@@ -11,7 +11,7 @@ from entities.base import Entity
 from entities.ring_inputs.integer_input import IntegerInput
 from entities.ring_inputs.fraction_input import FractionInput
 from entities.ring_inputs.polynomial_input import PolynomialInput
-from mathematics.base import UnitaryRing
+from mathematics.base import CommUnitRing
 from mathematics.ring import ZZ, ZZn, QQ, FractionField, Localization, PolyRing, PolyRingQuot
 from tfr import TypstFormulaRenderer
 
@@ -24,7 +24,7 @@ class RingElementConstructor(Entity):
 
     def __init__(
         self,
-        ring:           UnitaryRing,
+        ring:           CommUnitRing,
         anchor_rect:    rl.Rectangle | None,
         gen_name:       str,
         initial_value:  int | Any,

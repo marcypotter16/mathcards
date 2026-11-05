@@ -7,6 +7,7 @@ from entities.base import Entity
 import pyray as rl
 from dataclasses import dataclass
 
+from entities.card.base import BaseCard, CardState
 from mathematics.vector import Vector2
 from Settings import FONT_PATH
 from Tweener import Tween, TweenManager, TweenParams
@@ -56,77 +57,8 @@ class CardData:
     def __repr__(self) -> str:
         return f"({VALUES_TO_RANKS[self.rank]}{self.suit.value})"
 
-@dataclass
-class CardState:
-    is_dragged:             bool = False
-    is_hovered:             bool = False
-    started_dragging:       bool = False
-    started_hovering:       bool = False
-    ended_dragging:         bool = False
-    ended_hovering:         bool = False
-    _last_frame_dragged:    bool = False
-    _last_frame_hovered:    bool = False
-
-    def clear_frame_triggers(self):
-        """Only clear event triggers at the start of a frame. 
-        Persistent states like 'is_dragged' and 'is_hovered' must NOT be wiped here."""
-        self.started_dragging   = False
-        self.started_hovering   = False
-        self.ended_dragging     = False
-        self.ended_hovering     = False
-
-    def update_last_frame_vars(self):
-        self._last_frame_dragged = self.is_dragged
-        self._last_frame_hovered = self.is_hovered
-
-
-class BaseCard(Entity):
-    """Just the base abstract class for cards. Not to be instantiated."""
-    def __init__(self) -> None:
-        super().__init__()
-        self.z_index:   int
-        self.state:     CardState
-
-    def set_data(self, cd: CardData):
-        return NotImplemented
     
-    def bake_texture(self):
-        return NotImplemented
-    
-    def get_rect(self):
-        return NotImplemented
-    
-    def get_center(self) -> Vector2:
-        return NotImplemented
-    
-    def get_center_after_hover(self) -> Vector2:
-        return NotImplemented
-    
-    def place_card(self, new_pos):
-        return NotImplemented
-    
-    def tween_center(self, new_pos: Vector2, dur=0.2, easing_type='ease-in-out-cubic', callback: Callable | None = None):
-        return NotImplemented
-    
-    def tween_rotation(self, new_rot: float, dur=0.2):
-        return NotImplemented
-        
-    def tween_scale(self, new_scale: float, dur=0.2):
-        return NotImplemented
-    
-    def snap_back(self):
-        return NotImplemented
-    
-    def update(self, dt):
-        return NotImplemented
-    
-    def render(self, logical_texture: rl.RenderTexture):
-        return NotImplemented
-    
-    def unload(self):
-        return NotImplemented
-
-class Card(BaseCard):
+class Card_OLD(BaseCard):
     def __init__(self, rank: int = 0, suit: Suit = Suit.NONE, card_data: CardData | None = None, _dont_initialize_render_texture=False) -> None:
         if card_data is not None:
             self.card_data = card_data
@@ -236,32 +168,7 @@ class Card(BaseCard):
         rl.end_texture_mode()
         self.texture_is_dirty = False
 
-    def get_rect(self):
-        return rl.Rectangle(self.center._x - self.dimensions._x * .5, self.center._y - self.dimensions._y * .5, self.width, self.height)
-
-    def get_center(self) -> Vector2:
-        return self.center
-
-    def get_center_after_hover(self) -> Vector2:
-        return self.center + Vector2(0, -1) * .1 * self.height
-
-    def place_card(self, new_pos):
-        """This actually resets the card's before-hover and before-drag centers to the new position"""
-        self.center = self.center_rest = self.center_before_drag = new_pos
-
-    def tween_center(self, new_pos: Vector2, dur=0.2, easing_type='ease-in-out-cubic', callback: Callable | None = None):
-        self.tm.add_tween(Tween(TweenParams(self, "center", new_pos, dur=dur, easing_type=easing_type, callback=callback)), kill_existing=True) # type: ignore
-
-    def tween_rotation(self, new_rot: float, dur=0.2):
-        self.tm.add_tween(Tween(TweenParams(self, "rotation", new_rot, dur=dur, easing_type='ease-out-cubic')), kill_existing=True)
-
-    def tween_scale(self, new_scale: float, dur=0.2):
-        self.tm.add_tween(Tween(TweenParams(self, "scale", new_scale, dur=dur, easing_type='ease-out-cubic')), kill_existing=True)
-
-    def snap_back(self):
-        self.tween_center(self.center_before_drag, dur=0.8, callback=lambda: setattr(self, '_is_snapping_back', False))
-        if self.scale != 1.0:
-            self.tween_scale(1.0)
+    
 
     def _be_a_lil_silly(self):
         if self._timer >= 1.0:

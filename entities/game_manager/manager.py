@@ -1,11 +1,11 @@
 
 
-from entities.game_manager.dataclasses import GameAction
+from entities.game_manager.dataclasses import GameAction, GameState
 
 
 class GameManager:
     def __init__(self, local_player_id: str) -> None:
-        self.local_player_id = local_player_id
+        self.state:     GameState
         
         # If playing online, you'd have a reference to your networking client interface
         # self.network_client = network_client

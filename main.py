@@ -4,17 +4,12 @@ from concurrent.futures import Future
 import pyray as rl
 
 from entities.GameUI import GameUI
-from entities.card.Card import BaseCard, Suit, init_cards
-from entities.card.CardManager import CardManager
-from entities.base import Entity
-from entities.card.FormulaCard import FormulaCard
-from mathematics.base import PrincipalIdeal
 from states.menu import MainMenuState
 from states.morphism import MorphismConstructorState
-from mathematics.vector import Vector2
 from game import Game
 from mathematics.poly import Polynomial
 from mathematics.ring import QQ, ZZ, IntegerIdeal, Localization, PolyRing, PolyRingQuot, PrincipalPolyIdeal, ZZn
+from states.test import TestState
 from tfr import FormulaResult, TypstFormulaRenderer
 
 
@@ -39,7 +34,7 @@ def update():
 
 async def main() -> None:
     rl.set_config_flags(rl.ConfigFlags.FLAG_WINDOW_RESIZABLE | rl.ConfigFlags.FLAG_VSYNC_HINT | rl.ConfigFlags.FLAG_MSAA_4X_HINT)
-    # rl.set_trace_log_level(5)
+    rl.set_trace_log_level(5)
     rl.set_target_fps(120)
     rl.init_window(S_WINDOW_WIDTH, S_WINDOW_HEIGHT, "Mathcards")
     icon            = rl.load_image("Generated icon.png")
@@ -50,7 +45,7 @@ async def main() -> None:
     game = Game({"tfr": tfr})
     game.init()
     # game_ui         = GameUI()
-    # # init_cards()
+    # init_cards()
     # formula_card    = await FormulaCard.create("$ZZ[x]/(x^2)$", tfr=tfr)
     # fc2             = await FormulaCard.create("$ZZ$", tfr=tfr)
     # formula_card.place_card(Vector2(300, 400))
@@ -68,8 +63,10 @@ async def main() -> None:
     mc = MorphismConstructorState(game, zz5x_q, zz_2, on_complete=lambda d: print(len(d)))
 
     menu = MainMenuState(game)
-    game.enter_state(menu)
-    game.enter_state(mc)
+    # game.enter_state(menu)
+    # game.enter_state(mc)
+    t = TestState(game)
+    game.enter_state(t)
 
     try:
         while not rl.window_should_close():

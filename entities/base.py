@@ -1,3 +1,6 @@
+from pyray import RenderTexture
+
+
 class Entity:
     def __init__(self) -> None:
         pass
@@ -5,5 +8,5 @@ class Entity:
     def update(self, dt: float) -> None:
         pass
 
-    def render(self) -> None:
+    def render(self, logical_texture: RenderTexture | None) -> None:
         pass

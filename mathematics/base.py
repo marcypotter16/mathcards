@@ -1,5 +1,6 @@
 # from typing import *
 
+from enum import StrEnum, auto
 from math import ceil
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar
 from pyray import Rectangle, Vector2
@@ -13,6 +14,10 @@ def _op(operation: BinaryOp[T], a: T, b: T) -> T:
     if isinstance(operation, dict):
         return operation[(a, b)]
     return operation(a, b)
+
+class Category(StrEnum):
+    AbGp    = "Abelian_Groups"
+    CRings  = "Commutative_Rings"
 
 class AlgebraicStructure[T]:
     def validate(self):
@@ -172,7 +177,7 @@ class AbelianGroup[T](AdditiveGroup[T]):
             raise NotAbelian(f"Group {self.elements} is not abelian")
 
 
-class UnitaryRing[T](AbelianGroup[T]):
+class CommUnitRing[T](AbelianGroup[T]):
     def __init__(self, elements: Set[T], gp_operation: BinaryOp[T], product: BinaryOp[T]) -> None:
         self.elements:      Set[T]          = elements
         self.gp_operation:  BinaryOp[T]     = gp_operation
@@ -249,7 +254,7 @@ class Ideal[T](AbelianGroup[T]):
     """Base class for ideals, probably should not be instantiated"""
     generators: Set[T]
 
-    def __init__(self, generators: Set[T], ring: UnitaryRing[T]) -> None:
+    def __init__(self, generators: Set[T], ring: CommUnitRing[T]) -> None:
         self.generators = generators
         self.ring = ring
 
@@ -272,7 +277,7 @@ class Ideal[T](AbelianGroup[T]):
 
 class PrincipalIdeal[T](Ideal[T]):
     generator: T
-    def __init__(self, generator: T, ring: UnitaryRing[T]) -> None:
+    def __init__(self, generator: T, ring: CommUnitRing[T]) -> None:
         self.ring = ring
         self.generators = { generator }
         self.generator = generator
@@ -366,8 +371,8 @@ if __name__ == "__main__":
         (1, 0): 0,
         (1, 1): 1
     }
-    g1 = UnitaryRing[int](elements, operation, prod)
-    g2 = UnitaryRing[int](elements, operation, prod)
+    g1 = CommUnitRing[int](elements, operation, prod)
+    g2 = CommUnitRing[int](elements, operation, prod)
     mapping = {
         0: 0,
         1: 0

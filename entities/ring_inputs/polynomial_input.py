@@ -20,7 +20,7 @@ from typing import Any, Callable
 import pyray as rl
 
 from entities.ring_inputs.base import BaseElementInput
-from mathematics.base import UnitaryRing, get_rect_center
+from mathematics.base import CommUnitRing, get_rect_center
 from mathematics.ring import ZZ, ZZn, QQ, FractionField, Localization, PolyRing, PolyRingQuot
 from mathematics.poly import Polynomial
 from tfr import FormulaResult, TypstFormulaRenderer
@@ -67,7 +67,7 @@ def _build_typst_poly(degree: int, coeffs: list[Any | None]) -> str:
 # ---------------------------------------------------------------------------
 
 def _make_coeff_widget(
-    coeff_ring:   UnitaryRing,
+    coeff_ring:   CommUnitRing,
     anchor_rect:  rl.Rectangle,
     gen_name:     str,
     current_val:  Any,

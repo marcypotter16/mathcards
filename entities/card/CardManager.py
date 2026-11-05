@@ -1,5 +1,5 @@
 import pyray as rl
-from entities.card.Card import BaseCard, Suit
+from entities.card.base import BaseCard
 from entities.base import Entity
 from mathematics.vector import Vector2
 

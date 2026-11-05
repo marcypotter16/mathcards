@@ -6,7 +6,7 @@ import pyray as rl
 
 import Settings
 from entities.ring_el_widget import RingElementConstructor
-from mathematics.base import UnitaryRing
+from mathematics.base import CommUnitRing
 from mathematics.vector import Vector2
 from states.base import State
 from tfr import FormulaResult, TypstFormulaRenderer
@@ -26,8 +26,8 @@ class MorphismConstructorState(State):
     def __init__(
         self,
         game: "Game",
-        domain: UnitaryRing,
-        codomain: UnitaryRing,
+        domain: CommUnitRing,
+        codomain: CommUnitRing,
         on_complete: Callable[[dict[Any, Any]], None] | None = None,
     ) -> None:
         super().__init__(game)

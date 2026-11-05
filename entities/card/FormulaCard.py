@@ -1,13 +1,13 @@
 from asyncio import wrap_future
 from sys import exit
 
-from entities.card.Card import BaseCard, Card
+from entities.card.base import BaseCard
 import pyray as rl
 
 from mathematics.vector import Vector2
 from tfr import FormulaResult, TypstFormulaRenderer
 
-class FormulaCard(Card):
+class FormulaCard(BaseCard):
     def __init__(self, formula: str, tfr: TypstFormulaRenderer | None = None) -> None:
         super().__init__(_dont_initialize_render_texture=True)
         self.width, self.height                                 = 225, 150

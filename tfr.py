@@ -37,12 +37,14 @@ class TypstFormulaRenderer:
 
     def compile_formula(
         self,
-        formula: str,
-        name: str,
-        ppi: int,
-        frac_inline: bool = True,
-        query_block: str | None = None,  # Accetta direttamente l'intero blocco magico Typst
-    ) -> FormulaResult:
+        formula:        str,
+        name:           str,
+        ppi:            int,
+        frac_inline:    bool = True,
+        query_block:    str | None = None,  # Accetta direttamente l'intero blocco magico Typst
+        custom_header:  str | None = None   # Accetta un header personalizzato
+    )                   -> FormulaResult:
+        
         self.cache_directory.mkdir(parents=True, exist_ok=True)
 
         typ_path = self.cache_directory / f"{name}@{ppi}ppi.typ"
@@ -56,7 +58,7 @@ class TypstFormulaRenderer:
             ")\n"
             "#set text(size: 12pt, fill: white)\n"
             f"#set math.frac(style: \"{'horizontal' if frac_inline else 'skewed'}\")\n\n"
-        )
+        ) if custom_header is None else custom_header + "\n"
 
         # Se viene passato un blocco di query, definiamo anche la macro di target in cima per comodità
         if query_block:
@@ -158,7 +160,12 @@ class TypstFormulaRenderer:
         )
 
     def queue_formula(
-        self, formula: str, ppi: int, frac_inline: bool = True, query_block: str | None = None
+        self, 
+        formula:        str, 
+        ppi:            int, 
+        frac_inline:    bool = True, 
+        query_block:    str | None = None,
+        custom_header:  str | None = None
     ) -> Future[FormulaResult]:
         name = str(uuid5(NAMESPACE_DNS, formula + str(ppi)))
         existing = self.pending.get(name)
@@ -166,7 +173,7 @@ class TypstFormulaRenderer:
             return existing
 
         future = self.executor.submit(
-            self.compile_formula, formula, name, ppi, frac_inline=frac_inline, query_block=query_block
+            self.compile_formula, formula, name, ppi, frac_inline=frac_inline, query_block=query_block, custom_header=custom_header
         )
         self.pending[name] = future
         return future

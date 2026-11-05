@@ -5,13 +5,13 @@ from sympy import Poly
 from sympy.abc import x
 from sympy.core.cache import clear_cache
 
-from mathematics.base import UnitaryRing
+from mathematics.base import CommUnitRing
 
 T_cov = TypeVar('T_cov', covariant=True)
 
 
 class Polynomial[T]:
-    def __init__(self, coefficients: Dict[int, T], ring: UnitaryRing[T]) -> None:
+    def __init__(self, coefficients: Dict[int, T], ring: CommUnitRing[T]) -> None:
         self.ring = ring
         self.coefficients = coefficients
         if hasattr(ring, "reduce_mod"):
@@ -74,11 +74,11 @@ class Polynomial[T]:
         return res
 
     @staticmethod
-    def monomial(coeff: T, power: int, coeff_ring: UnitaryRing[T]) -> Polynomial[T]:
+    def monomial(coeff: T, power: int, coeff_ring: CommUnitRing[T]) -> Polynomial[T]:
         return Polynomial({ power: coeff }, coeff_ring)
 
     @staticmethod
-    def create_random(coeff_ring: UnitaryRing, deg: int = -1) -> Polynomial:
+    def create_random(coeff_ring: CommUnitRing, deg: int = -1) -> Polynomial:
         """NOTE: it may happen that LC is zero! So TODO fix this."""
         if not hasattr(coeff_ring, "get_random_element"):
             raise ValueError("coeff ring must implement get_random_element")
@@ -245,15 +245,17 @@ class Polynomial[T]:
                     parts.append(f"- {c_term}")
                 else:
                     parts.append(f"+ {c_term}")
+
+        # print(" ".join(parts))
                     
         return " ".join(parts)
     
     @staticmethod
-    def zero(ring: UnitaryRing) -> Polynomial:
+    def zero(ring: CommUnitRing) -> Polynomial:
         return Polynomial({}, ring)
 
     @staticmethod
-    def univariate_from_string(s: str, coeff_parser: Callable[[str], T], ring: UnitaryRing[T]) -> Polynomial:
+    def univariate_from_string(s: str, coeff_parser: Callable[[str], T], ring: CommUnitRing[T]) -> Polynomial:
         """
         Parses a string representation of a univariate polynomial where coefficients 
         can be enclosed in parentheses (e.g., '(1 + y) * x^2 + 3 * x + (5)').

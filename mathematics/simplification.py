@@ -1,6 +1,6 @@
 from math import gcd
 
-from mathematics.base import AdditiveGroup, Ideal, Morphism, PrincipalIdeal, UnitaryRing
+from mathematics.base import AdditiveGroup, Ideal, Morphism, PrincipalIdeal, CommUnitRing
 from mathematics.poly import Polynomial
 from mathematics.ring import QQ, ZZ, FFq, FractionField, IntegerIdeal, PolyRingQuot, PrincipalPolyIdeal, RingQuot, ZZn
 
