@@ -38,10 +38,6 @@ class TypstFormulaRenderer:
             thread_name_prefix="typst",
         )
         self.pending: dict[str, Future[FormulaResult]] = {}
-        
-        self.font = rl.load_font(str(FONT_PATH))
-        if self.font.texture.id == 0:
-            print("WARNING: Raylib failed to load the font!")
 
     def compile_formula(
         self,

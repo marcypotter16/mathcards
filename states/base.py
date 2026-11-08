@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING
 import pyray as rl
 
 if TYPE_CHECKING:
-    from game import Game
+    from state_manager import StateManager
 
 class State:
-    def __init__(self, game: 'Game', data=None) -> None:
+    def __init__(self, game: 'StateManager', data=None) -> None:
         """Data is what a previous state can pass to this state."""
         self.data = data
         self.game = game

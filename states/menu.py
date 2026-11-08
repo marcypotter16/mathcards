@@ -1,12 +1,12 @@
 # states/main_menu.py
 import pyray as rl
-from game import Game
+from state_manager import StateManager
 from states.base import State
 
 
 class MainMenuState(State):
     """Title screen with a small vertical list of buttons."""
-    def __init__(self, game: Game, data=None) -> None:
+    def __init__(self, game: StateManager, data=None) -> None:
         super().__init__(game, data)
         self._hovered: int = -1
         self._built:   bool = False

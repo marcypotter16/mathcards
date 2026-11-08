@@ -2,7 +2,7 @@ from enum import StrEnum
 from typing import Literal
 from Settings import COLOR_OP
 from entities.card.base import BaseCard, OperatorCardSer
-from game import Game
+from state_manager import StateManager
 from mathematics.vector import Vector2
 from tfr import TypstFormulaRenderer
 
@@ -47,7 +47,7 @@ class OpCard(BaseCard):
         OperatorType.ADD: "$+$",
         OperatorType.SUB: "$-$",
         OperatorType.MUL: "$dot.c$",
-        OperatorType.INVERT: "$^(-1)$"
+        OperatorType.INVERT: "$square^(-1)$"
     }
     ARITY:      dict[OperatorType, Literal['n-ary'] | int] = {
         OperatorType.ADD: 'n-ary',
@@ -59,11 +59,11 @@ class OpCard(BaseCard):
     # --- Vertical Layout to match EORCard ---
     DIMENSIONS = Vector2(150, 225)
 
-    def __init__(self, game: Game, type: OperatorType, card_id: int | None = None) -> None:
+    def __init__(self, game: StateManager, type: OperatorType, card_id: int | None = None) -> None:
         super().__init__(card_id)
         self.op_type:       OperatorType        = type
         self.tfr                                = game.tfr
-        ppi                                     = 200
+        ppi                                     = 180
         
         self.bg_color = COLOR_OP
         self.border_thickness = 8
@@ -101,23 +101,6 @@ class OpCard(BaseCard):
             self.tex = rl.load_texture(path)
             rl.set_texture_filter(self.tex, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
             self.texture_is_dirty = True
-    
-        if self.state.snapping_back:
-            return
-
-        if self.state.started_hovering:
-            self.tween_center(self.get_center_after_hover())
-            self.tween_rotation(self.rot_when_hov)
-
-        if self.state.ended_hovering:
-            self.tween_center(self.center_rest)
-            self.tween_rotation(0.0)
-
-        if self.state.is_dragged:
-            self.center = Vector2.from_raylib(rl.vector2_lerp(self.center.raylib_ref, rl.get_mouse_position(), 22.0 * dt))
-
-        if self.state.ended_dragging:
-            self.snap_back()
 
     def bake_texture(self):
         self._ensure_render_texture()
@@ -210,6 +193,6 @@ class OpCard(BaseCard):
             )
 
     @classmethod
-    def from_ser(cls, sd: OperatorCardSer, g: Game) -> "OpCard":
+    def from_ser(cls, sd: OperatorCardSer, g: StateManager) -> "OpCard":
         op = OperatorType[sd.operator] if isinstance(sd.operator, str) else sd.operator
         return cls(g, op, card_id=sd.id)

@@ -1,5 +1,7 @@
+from dataclasses import dataclass
+from typing import Any
+
 from entities.base import Entity
-from entities.game_manager.dataclasses import ItemSer
 
 
 class Item(Entity):
@@ -12,3 +14,13 @@ class Item(Entity):
     @classmethod
     def deserialize(cls, data: ItemSer) -> Item:
         return NotImplemented
+
+@dataclass(frozen=True)
+class ItemSer:
+    id:         str
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> ItemSer:
+        return cls(
+            id = d["id"]
+        )

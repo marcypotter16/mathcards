@@ -4,7 +4,9 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from entities.card.base import CardId, CardSer, BaseCard
 from entities.card.factory import card_from_ser, card_ser_from_dict
-from game import Game
+from entities.item import ItemSer
+from entities.player import PlayerId, PlayerState, PlayerStateSer, PlayerView
+from state_manager import StateManager
 from tfr import TypstFormulaRenderer
 
 from entities.hand import Hand
@@ -17,20 +19,7 @@ if TYPE_CHECKING:
 
 from mathematics.serialization import deserialize_ring, serialize_ring
 
-
 from dataclasses import dataclass
-
-type PlayerId = str
-
-@dataclass(frozen=True)
-class ItemSer:
-    id:                     str
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> ItemSer:
-        return cls(
-            id = d["id"]
-        )
 
 @dataclass
 class GameState:
@@ -59,7 +48,7 @@ class GameState:
         )
 
     @staticmethod
-    def deserialize(gss: GameStateSer, game: Game) -> 'GameState':
+    def deserialize(gss: GameStateSer, game: StateManager) -> 'GameState':
         cards = {
             cid: card_from_ser(ser, game) for cid, ser in gss.cards.items()
         }
@@ -70,12 +59,12 @@ class GameState:
         players = {
             pid: PlayerState.deserialize(pss, cards) for pid, pss in gss.players.items()
         }
-        boards = {
-            pid: Board.deserialize(bss, cards) for pid, bss in gss.boards.items()
-        }
+
+        boards = gss.boards
+
         return GameState(
             players         = players,
-            boards          = boards,
+            boards          = {pid: Board.deserialize(board) for pid, board in boards.items()},
             cards           = cards,
             active_ring     = deserialize_ring(gss.active_ring),
             active_category = Category(gss.active_category),
@@ -112,61 +101,6 @@ class GameStateSer:
             rng_seed=int(d["rng_seed"]),
         )
 
-@dataclass
-class PlayerState:
-    id:                 PlayerId
-    board:              Board
-    hand:               Hand      # private
-    deck:               Deck
-    discard:            Deck
-    money:              float
-    items:              list[Item]
-
-    def serialize(self) -> PlayerStateSer:
-        return PlayerStateSer(
-            id      = self.id,
-            board   = self.board.serialize(),
-            hand    = self.hand.serialize(),
-            deck    = self.deck.serialize(),
-            discard = self.discard.serialize(),
-            money   = self.money,
-            items   = [item.serialize() for item in self.items]
-        )
-
-    @staticmethod
-    def deserialize(pss: PlayerStateSer, cards: dict[CardId, BaseCard]) -> 'PlayerState':
-        return PlayerState(
-            id      = pss.id,
-            board   = Board.deserialize(pss.board, cards),
-            hand    = Hand.deserialize(pss.hand),
-            deck    = Deck.deserialize(pss.deck),
-            discard = Deck.deserialize(pss.discard),
-            money   = pss.money,
-            items   = [Item.deserialize(itemser) for itemser in pss.items]
-        )
-
-@dataclass
-class PlayerStateSer:
-    id:                 str
-    board:              dict[str, CardId | None]
-    hand:               list[CardId]
-    deck:               list[CardId]
-    discard:            list[CardId]
-    money:              float
-    items:              list[ItemSer]
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "PlayerStateSer":
-        return cls(
-            id=d["id"],
-            board={k: (None if v is None else int(v)) for k, v in d["board"].items()},
-            hand=[int(cid) for cid in d["hand"]],
-            deck=[int(cid) for cid in d["deck"]],
-            discard=[int(cid) for cid in d["discard"]],
-            money=int(d["money"]),           # money is int in the DTO
-            items=[ItemSer.from_dict(i) for i in d["items"]],
-        )
-
 # GameState.serialize stays as-is (modulo the variable name fix)
 # GameState.deserialize gains the id-counter advance + Category conversion
 
@@ -190,28 +124,4 @@ class GameView:
             active_category=gss.active_category,
             turn=gss.turn,
             n_actions_left=gss.n_actions_left,
-        )
-
-
-@dataclass(frozen=True)
-class PlayerView:
-    board:              dict[str, CardId | None]
-    hand_size:          int
-    hand:               list[CardId] | None     # full cards only for me!
-    deck_size:          int
-    discard:            list[CardId]            # public
-    money:              float
-    items:              list[ItemSer]
-
-    @staticmethod
-    def to_view(pss: PlayerStateSer, viewer: PlayerId) -> PlayerView:
-        is_me = viewer == pss.id # view full details only if I am the player in question
-        return PlayerView(
-            board       = pss.board,
-            hand_size   = len(pss.hand),
-            hand        = pss.hand if is_me else None,
-            deck_size   = len(pss.deck),
-            discard     = pss.discard,
-            money       = pss.money,
-            items       = pss.items
         )

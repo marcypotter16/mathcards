@@ -1,7 +1,4 @@
-
-
 from entities.card.base import CardId
-
 
 class Hand:
     def __init__(self) -> None:
@@ -9,6 +6,9 @@ class Hand:
         self.cards: list[CardId] = []
 
     def insert_card(self, card_id: CardId, index: int = -1):
+        # print(f"Inserting card {card_id} in position {index}")
+        # print(f"Emitting action {act}")
+        # EVENT_BUS.emit(act)
         self.cards.insert(index, card_id)
     
     def serialize(self) -> list[CardId]:

@@ -1,4 +1,5 @@
 import os
+from entities.game_manager.events import EventBus
 from states.base import State
 
 import pyray as rl
@@ -7,7 +8,7 @@ import Settings
 from tfr import TypstFormulaRenderer
 
 
-class Game:
+class StateManager:
     def __init__(self, tfr: TypstFormulaRenderer) -> None:
         self.state_stack: list[State] = []
         self.tfr: TypstFormulaRenderer = tfr
@@ -22,6 +23,7 @@ class Game:
             if loaded.texture.id > 0:
                 self.font = loaded
                 rl.set_texture_filter(self.font.texture, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
+                print("GAME FONT LOADED")
         else:
             self.font = rl.get_font_default()
 

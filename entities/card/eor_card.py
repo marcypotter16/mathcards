@@ -1,6 +1,6 @@
 from Settings import COLOR_FRACTION, COLOR_INTEGER, COLOR_POLYNOMIAL, COLOR_ZMOD, get_complementary_color, get_dimmed_color
 from entities.card.base import BaseCard
-from game import Game
+from state_manager import StateManager
 from mathematics.base import CommUnitRing
 from mathematics.serialization import deserialize_element, deserialize_ring, serialize_element, serialize_ring
 from mathematics.vector import Vector2
@@ -22,7 +22,7 @@ class EORCard[T](BaseCard):
     # --- Vertical Layout ---
     DIMENSIONS = Vector2(150, 225)
 
-    def __init__(self, game: Game, ring: CommUnitRing[T], element: T, card_id: int | None = None) -> None:
+    def __init__(self, game: StateManager, ring: CommUnitRing[T], element: T, card_id: int | None = None) -> None:
         super().__init__(card_id)
         # self.game = game
         self.ring = ring
@@ -58,14 +58,6 @@ class EORCard[T](BaseCard):
             case _:
                 self.bg_color = COLOR_INTEGER
             
-        # --- Physics/State (from BaseCard) ---
-        self.center = Vector2(100, 200)
-        self.center_rest = Vector2(100, 200)
-        self.center_before_drag = Vector2(100, 200)
-        self.rotation = 0.0
-        self.scale = 1.0
-
-        self.render_texture: rl.RenderTexture | None = None
         self.texture_is_dirty = True
 
     def _ensure_render_texture(self) -> None:
@@ -85,23 +77,6 @@ class EORCard[T](BaseCard):
             self.el_tex = rl.load_texture(str(self.el_ff.result().png_path.resolve()))
             rl.set_texture_filter(self.el_tex, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
             self.texture_is_dirty = True
-
-        if self.state.snapping_back:
-            return
-
-        if self.state.started_hovering:
-            self.tween_center(self.get_center_after_hover())
-            self.tween_rotation(self.rot_when_hov)
-
-        if self.state.ended_hovering:
-            self.tween_center(self.center_rest)
-            self.tween_rotation(0.0)
-
-        if self.state.is_dragged:
-            self.center = Vector2.from_raylib(rl.vector2_lerp(self.center.raylib_ref, rl.get_mouse_position(), 22.0 * dt))
-
-        if self.state.ended_dragging:
-            self.snap_back()
 
     def _draw_fitted_texture(self, tex: rl.Texture, bounding_box: rl.Rectangle):
         """Draws a texture centered in a bounding box, scaling down only if it overflows."""
@@ -234,7 +209,7 @@ class EORCard[T](BaseCard):
             self._requeue_formulas()
 
     @classmethod
-    def from_ser(cls, cd: ElementCardSer, game: Game) -> "EORCard":
+    def from_ser(cls, cd: ElementCardSer, game: StateManager) -> "EORCard":
         if cd.ring_ser is None or cd.base_element_ser is None:
             raise ValueError("EORCard.from_ser: missing ring_tag / base_value")
         ring    = deserialize_ring(cd.ring_ser)

@@ -12,7 +12,7 @@ class PlaceholderCard(BaseCard):
         super().__init__()
         self.center = center
         self.flipped = flipped
-        self.back_tex = rl.load_texture("assets/backs/back_0.png")
+        self.back_tex = rl.load_texture("assets/backs/orbit.png")
 
     def update(self, dt):
         return super().update(dt)

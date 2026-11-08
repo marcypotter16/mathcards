@@ -5,8 +5,8 @@ FONT_PATH = "C:\\Users\\marcello\\Documents\\fonts\\Libron-Regular.ttf"
 WINDOW = {
     "L_WIDTH": 1920,
     "L_HEIGHT": 1080,
-    "S_WIDTH": 3840,
-    "S_HEIGHT": 2160,
+    "S_WIDTH": 1920,
+    "S_HEIGHT": 1080,
     # "BG_COLOR": rl.Color(24, 26, 32, 255)
     "BG_COLOR": rl.Color(23, 46, 38, 255)  
 }

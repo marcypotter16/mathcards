@@ -2,8 +2,10 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum, auto
 from typing import Any, Callable, Protocol
 
-from entities.card.base import CardId
+from entities.card.base import BaseCard, CardId
 from entities.game_manager.dataclasses import GameState, PlayerId
+from entities.game_manager.events import EVENT_BUS
+from mathematics.vector import Vector2
 
 
 class ActionType(StrEnum):
@@ -16,10 +18,12 @@ class ActionType(StrEnum):
 
 # entities/game_manager/actions.py
 
+
 @dataclass(frozen=True)
 class PlayCardAction:
     player_id:              PlayerId
     card_id:                CardId
+    coords:                 tuple[int, int]
 
     def can_apply(self, game: GameState) -> tuple[bool, str | None]:
         """Return (True, None) if legal, else (False, reason)."""
@@ -36,7 +40,8 @@ class PlayCardAction:
 
     def apply(self, game: GameState) -> None:
         """Apply unconditionally. Caller must have checked can_apply."""
-        ...
+        game.boards[self.player_id].grid[f"{self.coords[0]},{self.coords[1]}"] = self.card_id
+        game.players[self.player_id].hand.cards.remove(self.card_id)
 
 class Action(Protocol):
     def can_apply(self, gs: GameState) -> tuple[bool, str | None]:
@@ -46,15 +51,39 @@ class Action(Protocol):
         return
 
 @dataclass(frozen=True)
+class CardInsertedAction(Action):
+    actor:      PlayerId
+    card_id:    CardId
+
+@dataclass(frozen=True)
+class CardEndedDraggingAction(Action):
+    card_id:    CardId
+    position:   Vector2
+
+@dataclass(frozen=True)
+class CardShouldSnapBack(Action):
+    card:       BaseCard
+    reason:     str     = "Invalid drop"
+
+@dataclass(frozen=True)
 class DrawCardAction(Action):
     player_id:              PlayerId
+    amount:                 int         = 1
 
     def can_apply(self, gs: GameState) -> tuple[bool, str | None]:
+        deck = gs.players[self.player_id].deck
+        if not deck.can_draw(self.amount):
+            return False, f"Deck has {deck.size} cards, trying to draw {self.amount}."
+        if not gs.turn == self.player_id:
+            return False, "Can't draw outside my turn."
+        if gs.n_actions_left <= 0:
+            return False, "Not enough actions left this turn."
         return True, None
 
     def apply(self, gs: GameState):
         card = gs.players[self.player_id].deck.cards.pop()
         gs.players[self.player_id].hand.insert_card(card)
+        EVENT_BUS.emit(CardInsertedAction(self.player_id, card))
 
 @dataclass(frozen=True)
 class DiscardToDrawAction(Action):
@@ -110,6 +139,7 @@ _ACTION_FACTORIES: dict[ActionType, Callable[[dict], GameAction]] = {
     ActionType.PLAY_CARD_FROM_HAND: lambda d: PlayCardAction(
                                         player_id=d["player_id"],
                                         card_id=int(d["card_id"]),
+                                        coords=tuple(d) # TODO
                                     ),
     ActionType.DRAW_CARD:      lambda d: DrawCardAction(player_id=d["player_id"]),
 }

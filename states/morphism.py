@@ -12,7 +12,7 @@ from states.base import State
 from tfr import FormulaResult, TypstFormulaRenderer
 
 if TYPE_CHECKING:
-    from game import Game
+    from state_manager import StateManager
 
 
 class MorphismConstructorState(State):
@@ -25,7 +25,7 @@ class MorphismConstructorState(State):
 
     def __init__(
         self,
-        game: "Game",
+        game: "StateManager",
         domain: CommUnitRing,
         codomain: CommUnitRing,
         on_complete: Callable[[dict[Any, Any]], None] | None = None,

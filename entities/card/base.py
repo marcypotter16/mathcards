@@ -56,8 +56,9 @@ class BaseCard(Entity, ABC):
         self.center_before_drag:    Vector2         = Vector2(0, 0)
         self.rotation:              float           = 0.0
         self.scale:                 float           = 1.0
-        self.rot_when_hov:          float           = -9.0
+        self.rot_when_hov:          float           = -6.0
         self.scale_when_hov:        float           = 1.1
+        self.render_texture:        rl.RenderTexture | None = None
         self.back_tex:              rl.Texture
 
         self.tm:                    TweenManager    = TweenManager()
@@ -97,6 +98,22 @@ class BaseCard(Entity, ABC):
     
     def update(self, dt):
         self.tm.update(dt)
+        if self.state.snapping_back:
+            return
+        
+        if self.state.started_hovering:
+            self.tween_center(self.get_center_after_hover())
+            self.tween_rotation(self.rot_when_hov)
+        
+        if self.state.ended_hovering:
+            self.tween_center(self.center_rest)
+            self.tween_rotation(0.0)
+        
+        if self.state.is_dragged:
+            self.center = Vector2.from_raylib(rl.vector2_lerp(self.center.raylib_ref, rl.get_mouse_position(), 22.0 * dt))
+        
+        # if self.state.ended_dragging:
+        #     self.snap_back()
     
     def render(self, logical_texture: rl.RenderTexture | None):
         return NotImplemented

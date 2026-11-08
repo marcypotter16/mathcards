@@ -1,61 +1,53 @@
+from entities.game_manager.dataclasses import GameState, GameView
+from entities.game_manager.actions import CardEndedDraggingAction, GameAction, DrawCardAction, PlayCardAction
+from entities.game_manager.events import EVENT_BUS
+from entities.renderer import GameViewRenderer
+from state_manager import StateManager
 
+import pyray as rl
 
-from entities.game_manager.dataclasses import GameAction, GameState
+class MatchManager:
+    def __init__(self, gs: GameState, renderer: GameViewRenderer):
+        self.gs = gs
+        self.renderer = renderer
+        self.me = renderer.me
+        self.event_bus = EVENT_BUS
+        self.event_bus.subscribe(DrawCardAction, lambda act: self.request_action(act))
+        self.event_bus.subscribe(PlayCardAction, lambda act: self.request_action(act))
+        # self.event_bus.subscribe(CardEndedDraggingAction, lambda act: self._handle_card_drop(act))
 
-
-class GameManager:
-    def __init__(self, local_player_id: str) -> None:
-        self.state:     GameState
+    def request_action(self, action: GameAction) -> None:
+        """Called by the UI (e.g. DeckManager) when the player wants to do something."""
         
-        # If playing online, you'd have a reference to your networking client interface
-        # self.network_client = network_client
-
-    def request_action(self, action: GameAction):
-        """
-        Called locally when the player interacts with the UI (e.g., dragging a card from hand to board).
-        """
-        # 1. (Optional Client-Side Validation) Check if the move is legal locally first for responsiveness
-        if not self.validate_action(action):
-            print("Illegal action attempted locally.")
+        # 1. Local validation (instant feedback)
+        ok, reason = action.can_apply(self.gs)
+        if not ok:
+            print(f"Action rejected: {reason}")
             return
 
-        # 2. In multiplayer, send to server instead of executing immediately (or use optimistic prediction)
-        # self.network_client.send(action.to_dict())
-        
-        # For single-player or testing, execute directly:
-        self.execute_action(action)
+        # 2. Send to server (if online)
+        # self.network.send(action)
 
-    def execute_action(self, action: GameAction):
-        """
-        The core brain. Executes the action on the game state regardless of 
-        whether it came from the local player or the opponent over the network.
-        """
-        match action.action_type:
-            case ActionType.PLAY_CARD_FROM_HAND:
-                card_id = action.payload.get("card_id")
-                target_board_index = action.payload.get("target_index")
-                
-                # Logic: Find card in hand, remove it, add it to the board manager
-                self._handle_play_card(action.player_id, card_id, target_board_index)
+        # 3. For local play, apply it and animate immediately
+        self._apply_and_animate(action)
 
-            case ActionType.ATTACK_TARGET:
-                # Handle attack logic between entities
-                pass
+    def receive_action_from_server(self, action: GameAction) -> None:
+        """Called by the network loop when an action arrives from the opponent/server."""
+        self._apply_and_animate(action)
 
-            case ActionType.END_TURN:
-                # Handle turn swapping logic
-                pass
+    def _apply_and_animate(self, action: GameAction) -> None:
+        action.apply(self.gs)
+        self.renderer.sync(GameView.to_view(self.gs.serialize(), action.player_id), action)
 
-            case _:
-                print(f"Unknown action type: {action.action_type}")
+    # def _handle_card_drop(self, act: CardEndedDraggingAction):
+    #     mp = rl.get_mouse_position()
+    #     for coord, slot in self.renderer.boards[self.me].slotgrid.items():
+    #         if rl.check_collision_point_rec(mp, slot.rec):
+    #             EVENT_BUS.emit(PlayCardAction(self.me, act.card_id, coord))
 
-    def validate_action(self, action: GameAction) -> bool:
-        """Basic rule-checking before sending/executing."""
-        # e.g., Is it actually this player's turn? Do they have enough mana?
-        return True
+    def update(self, dt: float):
+        self.renderer.update(dt)
 
-    def _handle_play_card(self, player_id: str, card_id: int, target_index: int):
-        # Implementation of moving a card from hand to board
-        # If player_id == self.local_player_id, manipulate your local Hand/Board managers
-        # If it's the opponent, manipulate the opponent's visual representation on your screen
-        pass
+
+    def render(self, logical_texture):
+        self.renderer.render(logical_texture)

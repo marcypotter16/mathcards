@@ -9,7 +9,7 @@ import pyray as rl
 
 class Slot(Entity):
 
-    DIMENSIONS  = Vector2(225, 150)
+    DIMENSIONS  = Vector2(150, 225)
     PADDING     = 10
 
     def __init__(self) -> None:
@@ -24,6 +24,10 @@ class Slot(Entity):
         if self.content is not None:
             return False
         self.content = card
+        if card.rotation != 0:
+            card.tween_rotation(0.0)
+        if card.scale != 1.0:
+            card.tween_scale(1.0)
         card.tween_center(self.center, callback=lambda: card.place_card(self.center))
         return True
 
@@ -44,6 +48,9 @@ class Slot(Entity):
 
     def set_color(self, new_color: rl.Color):
         self.color = new_color
+
+    def is_free(self) -> bool:
+        return self.content is None
 
     def update(self, dt: float) -> None:
         super().update(dt)
