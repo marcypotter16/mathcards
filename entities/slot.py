@@ -17,6 +17,8 @@ class Slot(Entity):
         self.center:        Vector2             = Vector2(0, 0)
         self.rec:           rl.Rectangle        = rl.Rectangle()
         self.color:         rl.Color            = rl.RAYWHITE
+        self.highlight_col: rl.Color            = rl.RED
+        self.highlighted:   bool                = False
 
         self.content:       BaseCard | None     = None
 
@@ -46,6 +48,9 @@ class Slot(Entity):
             self.DIMENSIONS.y + self.PADDING * 2
         )
 
+    def toggle_highlight(self):
+        self.highlighted = not self.highlighted
+
     def set_color(self, new_color: rl.Color):
         self.color = new_color
 
@@ -58,6 +63,6 @@ class Slot(Entity):
             self.content.update(dt)
 
     def render(self, logical_texture) -> None:
-        rl.draw_rectangle_rounded_lines(self.rec, 0.02, 0, self.color)
+        rl.draw_rectangle_rounded_lines(self.rec, 0.02, 0, self.color if not self.highlighted else self.highlight_col)
         if self.content is not None:
             self.content.render(logical_texture)

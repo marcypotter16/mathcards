@@ -29,6 +29,8 @@ class EORCard[T](BaseCard):
         self.base_value = self.current_value = element
         self.tfr = game.tfr
 
+        self.is_slottable = True
+
         base_font_pt = 24.0
         ppi = 100
 

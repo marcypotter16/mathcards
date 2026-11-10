@@ -64,6 +64,8 @@ class OpCard(BaseCard):
         self.op_type:       OperatorType        = type
         self.tfr                                = game.tfr
         ppi                                     = 180
+
+        self.is_slottable = False
         
         self.bg_color = COLOR_OP
         self.border_thickness = 8

@@ -22,7 +22,7 @@ class TestState(State):
         viewer = "p1" # p2
         gw = GameView.to_view(gss, viewer)
         gwr = GameViewRenderer(gw, game, gs.cards)
-        self.var = MatchManager(gs, gwr)
+        self.var = MatchManager(game, gs, gwr)
         # self.var = PlaceholderCard(Vector2(500, 500))
 
 

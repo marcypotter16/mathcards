@@ -60,6 +60,7 @@ class BaseCard(Entity, ABC):
         self.scale_when_hov:        float           = 1.1
         self.render_texture:        rl.RenderTexture | None = None
         self.back_tex:              rl.Texture
+        self.is_slottable:          bool
 
         self.tm:                    TweenManager    = TweenManager()
     
@@ -71,6 +72,9 @@ class BaseCard(Entity, ABC):
     
     def get_center(self) -> Vector2:
         return self.center
+
+    def place_center(self, new_center: Vector2):
+        return NotImplemented
     
     def get_center_after_hover(self) -> Vector2:
         return self.center + Vector2(0, -1) * .1 * self.DIMENSIONS.y
@@ -130,6 +134,7 @@ class BaseCard(Entity, ABC):
 class CardState:
     flipped:                bool = False
     snapping_back:          bool = False
+    leaving_to_gy:          bool = False
     is_dragged:             bool = False
     is_hovered:             bool = False
     started_dragging:       bool = False

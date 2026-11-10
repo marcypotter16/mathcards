@@ -2,16 +2,18 @@ from Settings import WINDOW
 from entities.card.CardManager import CardManager
 from entities.card.base import BaseCard, CardId
 from entities.card.placeholder import PlaceholderCard
-from entities.game_manager.actions import CardInsertedAction, CardShouldSnapBack, PlayCardAction
+from entities.game_manager.actions import CardInserted, CardShouldSnapBack, PlayCardToSlotAction
 from entities.game_manager.dataclasses import PlayerView
 from entities.game_manager.events import EVENT_BUS
+from entities.player import PlayerId
 from mathematics.vector import Vector2
 
 class HandManager(CardManager):
-    def __init__(self, center: Vector2, player_view: PlayerView, cards: dict[CardId, BaseCard]) -> None:
+    def __init__(self, center: Vector2, player_view: PlayerView, me: PlayerId, cards: dict[CardId, BaseCard]) -> None:
         super().__init__()
         self.center = center
         self.pw = player_view
+        self.me = me
         hand = self.pw.hand
         self.margin = 10
         self.distance = 100
@@ -21,9 +23,9 @@ class HandManager(CardManager):
         start_x = self.center.x - (total_width / 2)
 
         # Subscribe to the event!
-        EVENT_BUS.subscribe(CardInsertedAction, self._handle_card_inserted_action)
+        EVENT_BUS.subscribe(CardInserted, self._handle_card_inserted_action)
         EVENT_BUS.subscribe(CardShouldSnapBack, self._handle_card_snap_back)
-        EVENT_BUS.subscribe(PlayCardAction, lambda act: self._undrag_card())
+        EVENT_BUS.subscribe(PlayCardToSlotAction, lambda act: self._undrag_card())
 
         for i in range(n):
             x = start_x + (i * self.distance)
@@ -47,7 +49,9 @@ class HandManager(CardManager):
         if self.pw.hand is not None:
             # 1. For MY hand: Only remove cards that were played.
             # Do NOT rebuild the list, or it will flash.
-            self.cards = [c for c in self.cards if c.card_id in self.pw.hand]
+            self.cards = [c for c in self.cards 
+                          if c.card_id in self.pw.hand or c.state.leaving_to_gy
+                          ]
         else:
             # 2. For OPPONENT's hand: Match the placeholder count.
             # Add new placeholders off-screen so they fly in.
@@ -63,21 +67,22 @@ class HandManager(CardManager):
         self._relayout()
 
     def _relayout(self):
-        n = len(self.cards)
+        visible = [c for c in self.cards if not c.state.leaving_to_gy]
+        n = len(visible)
         if n == 0:
             return
-            
+
         total_width = (n - 1) * self.distance
         start_x = self.center.x - (total_width / 2)
-        
-        for i, card in enumerate(self.cards):
+
+        for i, card in enumerate(visible):
             x = start_x + (i * self.distance)
             target_pos = Vector2(x, self.center.y)
             card.center_rest = target_pos
             card.center_before_drag = target_pos
-            card.tween_center(target_pos, dur=0.3)
+            card.tween_center(target_pos, dur=0.4)
 
-    def _handle_card_inserted_action(self, act: CardInsertedAction):
+    def _handle_card_inserted_action(self, act: CardInserted):
         # THE FIX: Only animate if I am the one drawing!
         print(f"ACTOR: {act.actor}, VIEWER: {self.pw.viewer}")
         if act.actor != self.pw.viewer:
@@ -100,3 +105,15 @@ class HandManager(CardManager):
         self.undo_card_above_others(act.card)
         self._dragged_card = None
         act.card.state.ended_dragging = True
+
+    def update(self, dt: float):
+        if self.pw.viewer != self.me:
+            return
+
+        # Drop finished leavers without waiting for the next sync.
+        self.cards = [
+            c for c in self.cards
+            if c.state.leaving_to_gy or (self.pw.hand is not None and c.card_id in self.pw.hand)
+            or (self.pw.hand is None and isinstance(c, PlaceholderCard))
+        ]
+        super().update(dt)

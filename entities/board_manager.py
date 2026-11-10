@@ -6,7 +6,7 @@ from entities.base import Entity
 from entities.card.base import BaseCard
 from entities.card.factory import card_from_ser
 from entities.card.base import CardId
-from entities.game_manager.actions import CardEndedDraggingAction, CardShouldSnapBack, PlayCardAction
+from entities.game_manager.actions import CardEndedDragging, CardShouldSnapBack, PlayCardToSlotAction
 from entities.game_manager.events import EVENT_BUS
 from entities.player import PlayerId, PlayerView
 from entities.slot import Slot
@@ -28,11 +28,13 @@ class BoardManager(Entity):
 
         self.pw = pw
         self.me = me
-        self.is_mine = pw.hand is not None
+        self.is_mine = pw.viewer == self.me
         self.center = center
         self.cards = cards
-        EVENT_BUS.subscribe(CardEndedDraggingAction, self._handle_card_ended_drag)
+        EVENT_BUS.subscribe(CardEndedDragging, self._handle_card_ended_drag)
         self._fill_grid()
+
+        # self.glow_slots = False
 
     @property
     def width(self) -> float:
@@ -63,7 +65,9 @@ class BoardManager(Entity):
                     card = cards[cid]
                     slot.put_card(card) # This tweens the card to the slot center!
             else:
-                # State says empty, so clear it
+                # State says empty, so clear it (but render leaving cards!)
+                if slot.content is not None and slot.content.state.leaving_to_gy:
+                    continue
                 slot.content = None
 
     def _fill_grid(self):
@@ -79,7 +83,7 @@ class BoardManager(Entity):
                 s.place_topleft(Vector2(x, y))
                 self.slotgrid[(row, col)] = s
 
-    def _handle_card_ended_drag(self, act: CardEndedDraggingAction):
+    def _handle_card_ended_drag(self, act: CardEndedDragging):
         if not self.is_mine:
             return
         
@@ -87,7 +91,7 @@ class BoardManager(Entity):
         for coord, slot in self.slotgrid.items():
             if rl.check_collision_point_rec(pos.raylib_ref, slot.rec):
                 if slot.is_free():
-                    EVENT_BUS.emit(PlayCardAction(self.pw.viewer, act.card_id, coord))
+                    EVENT_BUS.emit(PlayCardToSlotAction(self.pw.viewer, act.card_id, coord))
                     return
                 else:
                     EVENT_BUS.emit(CardShouldSnapBack(self.cards[act.card_id], reason="Slot occupied"))
@@ -99,8 +103,8 @@ class BoardManager(Entity):
     def update(self, dt: float) -> None:
         for slot in self.slotgrid.values():
             slot.update(dt)
-        mp = rl.get_mouse_position()
-        Printer.print(mp.x, mp.y)
+        # mp = rl.get_mouse_position()
+        # Printer.print(mp.x, mp.y)
 
     def render(self, logical_texture: RenderTexture | None) -> None:
         for slot in self.slotgrid.values():

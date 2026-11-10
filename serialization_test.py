@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from Settings import FONT_PATH
 from entities.deck import Deck
-from entities.game_manager.actions import DrawCardAction, EndTurnAction, PlayCardAction
+from entities.game_manager.actions import DrawCardAction, EndTurnAction, PlayCardToSlotAction
 from entities.hand import Hand
 from state_manager import StateManager
 from mathematics.base import Category
@@ -243,7 +243,7 @@ def test_action_replay():
     gs = make_game_state()
     actions = [
         DrawCardAction(player_id="p1"),
-        PlayCardAction(player_id="p1", card_id=2, coords=(0, 0)),
+        PlayCardToSlotAction(player_id="p1", card_id=2, coords=(0, 0)),
         EndTurnAction(player_id="p1"),
         DrawCardAction(player_id="p2")
     ]

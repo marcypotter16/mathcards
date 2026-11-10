@@ -3,7 +3,7 @@ from typing import Sequence
 import pyray as rl
 from entities.card.base import BaseCard
 from entities.base import Entity
-from entities.game_manager.actions import CardEndedDraggingAction
+from entities.game_manager.actions import CardEndedDragging, CardStartedDragging
 from entities.game_manager.events import EVENT_BUS
 from mathematics.vector import Vector2
 
@@ -59,6 +59,11 @@ class CardManager(Entity):
         for card in reversed(self.cards):
             card.state.clear_frame_triggers()
 
+            if card.state.leaving_to_gy:
+                card.update(dt)
+                card.state.update_last_frame_vars()
+                continue
+
             is_hovered_this_frame = (card == current_top_hover) or (self._dragged_card == card)
 
             card.state.is_hovered = is_hovered_this_frame
@@ -81,13 +86,14 @@ class CardManager(Entity):
                         self._dragged_card = card
                         self.bring_card_above_others(card)
                         card.state.started_dragging = True
+                        EVENT_BUS.emit(CardStartedDragging(card))
             else:
                 card.state.is_dragged = False
                 if card.state._last_frame_dragged:
                     # self.undo_card_above_others(card)
                     # self._dragged_card = None
                     # card.state.ended_dragging = True
-                    EVENT_BUS.emit(CardEndedDraggingAction(card.card_id, card.center))
+                    EVENT_BUS.emit(CardEndedDragging(card.card_id, card.center))
 
             card.update(dt)
             card.state.update_last_frame_vars()

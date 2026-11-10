@@ -113,6 +113,12 @@ class Vector2:
     def mag(self) -> float:
         return rl.vector2_length(self.raylib_ref)
 
+    def __iter__(self):
+        return iter((self.x, self.y))
+
+    def __next__(self):
+        return next(iter((self.x, self.y)))
+
 if __name__ == "__main__":
     a = Vector2(vect=rl.Vector2(10, 20))
     print(a)

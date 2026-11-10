@@ -7,7 +7,6 @@ from entities.card.factory import card_from_ser, card_ser_from_dict
 from entities.item import ItemSer
 from entities.player import PlayerId, PlayerState, PlayerStateSer, PlayerView
 from state_manager import StateManager
-from tfr import TypstFormulaRenderer
 
 from entities.hand import Hand
 from entities.board import Board
@@ -64,7 +63,7 @@ class GameState:
 
         return GameState(
             players         = players,
-            boards          = {pid: Board.deserialize(board) for pid, board in boards.items()},
+            boards          = {pid: pstate.board for pid, pstate in players.items()},
             cards           = cards,
             active_ring     = deserialize_ring(gss.active_ring),
             active_category = Category(gss.active_category),

@@ -7,3 +7,4 @@ class Cache:
     def init(cls) -> None:
         """To be called after window initialization"""
         cls.card_back = rl.load_texture("assets/backs/orbit.png")
+        rl.set_texture_filter(cls.card_back, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)

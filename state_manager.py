@@ -1,5 +1,4 @@
 import os
-from entities.game_manager.events import EventBus
 from states.base import State
 
 import pyray as rl

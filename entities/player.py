@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from entities.board import Board
 from entities.card.base import BaseCard, CardId
 from entities.deck import Deck
+from entities.discard_pile import DiscardPile
 from entities.game_manager.dataclasses import ItemSer
 from entities.hand import Hand
 from entities.item import Item
@@ -18,7 +19,7 @@ class PlayerState:
     board:              Board
     hand:               Hand      # private
     deck:               Deck
-    discard:            Deck
+    discard:            DiscardPile
     money:              float
     items:              list[Item]
 
@@ -40,7 +41,7 @@ class PlayerState:
             board   = Board.deserialize(pss.board),
             hand    = Hand.deserialize(pss.hand),
             deck    = Deck.deserialize(pss.deck),
-            discard = Deck.deserialize(pss.discard),
+            discard = DiscardPile.deserialize(pss.discard),
             money   = pss.money,
             items   = [Item.deserialize(itemser) for itemser in pss.items]
         )
@@ -75,7 +76,7 @@ class PlayerView:
     hand_size:          int
     hand:               list[CardId] | None     # full cards only for me!
     deck_size:          int
-    discard:            list[CardId]            # public
+    discard:            DiscardPile             # public
     money:              float
     items:              list[ItemSer]
 
@@ -88,7 +89,7 @@ class PlayerView:
             hand_size   = len(pss.hand),
             hand        = pss.hand if is_me else None,
             deck_size   = len(pss.deck),
-            discard     = pss.discard,
+            discard     = DiscardPile.deserialize(pss.discard),
             money       = pss.money,
             items       = pss.items
         )
