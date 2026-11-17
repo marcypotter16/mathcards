@@ -121,4 +121,4 @@ class Vector2:
 
 if __name__ == "__main__":
     a = Vector2(vect=rl.Vector2(10, 20))
-    print(a)
+    # print(a)

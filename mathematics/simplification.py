@@ -1,8 +1,22 @@
+from collections.abc import Callable
 from math import gcd
 
-from mathematics.base import AdditiveGroup, Ideal, Morphism, PrincipalIdeal, CommUnitRing
+from mathematics.base import (
+    CommUnitRing,
+    PrincipalIdeal,
+)
 from mathematics.poly import Polynomial
-from mathematics.ring import QQ, ZZ, FFq, FractionField, IntegerIdeal, PolyRingQuot, PrincipalPolyIdeal, RingQuot, ZZn
+from mathematics.ring import (
+    QQ,
+    ZZ,
+    FFq,
+    FractionField,
+    IntegerIdeal,
+    PolyRingQuot,
+    PrincipalPolyIdeal,
+    RingQuot,
+    ZZn,
+)
 
 
 class RingIsomorphismRegistry:
@@ -10,15 +24,16 @@ class RingIsomorphismRegistry:
     _registry = []
 
     @classmethod
-    def register(cls, condition_func, isomorphism_func):
+    def register(cls, condition_func: Callable[[CommUnitRing], bool], isomorphism_func: Callable[[CommUnitRing], CommUnitRing]):
         cls._registry.append((condition_func, isomorphism_func))
 
     @classmethod
-    def simplify(cls, ring):
+    def simplify(cls, ring: CommUnitRing):
         for condition, target_func in cls._registry:
             if condition(ring):
                 return target_func(ring)
         return ring
+
 
 # Rule 1: Frac(ZZ) is isomorphic to QQ
 RingIsomorphismRegistry.register(
@@ -64,7 +79,7 @@ if __name__ == "__main__":
 
     z2 = ZZn(2)
     f4_poly = PolyRingQuot(z2, PrincipalPolyIdeal(Polynomial({2: 1, 1: 1, 0: 1}, z2), z2))
-    # print(isinstance(f4_poly.coefficient_ring, ZZn), f4_poly.is_field())
+    print(isinstance(f4_poly.coefficient_ring, ZZn), f4_poly.is_field())
     f4 = RingIsomorphismRegistry.simplify(f4_poly)
     print(f4_poly, f4)
 

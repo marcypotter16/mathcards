@@ -30,6 +30,7 @@ class DeckManager(Entity):
         self.pw = player_view
 
         self.deck_size_label_rect = rl.Rectangle(self.rect.x, self.rect.y - 50, self.rect.width, 40)
+        self._visible_deck_size_label = False
 
     @property
     def rect(self) -> rl.Rectangle:
@@ -50,9 +51,9 @@ class DeckManager(Entity):
             self._visible_deck_size_label = True
             if clicked:
                 if self.pw.hand is None:
-                    print(f"Deck is not mine, can only show size: {23}")
+                    # print(f"Deck is not mine, can only show size: {23}")
                     return
-                print(f"Clicked on deck with permissions, emitting draw action...")
+                # print(f"Clicked on deck with permissions, emitting draw action...")
                 self.event_bus.emit(DrawCardAction(self.pw.viewer))
         else:
             self._visible_deck_size_label = False

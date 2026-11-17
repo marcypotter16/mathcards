@@ -1,13 +1,13 @@
-from entities.card.op_card import OpCard
-from entities.game_manager.dataclasses import GameState, GameView
+from entities.card.eor_card import RingElementCard
 from entities.game_manager.actions import *
+from entities.game_manager.dataclasses import GameState, GameView
 from entities.game_manager.events import EVENT_BUS
-from entities.renderer import GameViewRenderer, StateMachine
+from entities.printer import Printer
+from entities.renderer import GameViewRenderer
+from mathematics.canonical_maps import Conversion
 from state_manager import StateManager
-
-import pyray as rl
-
 from states.discard_pile import DiscardPileDetailState
+
 
 class MatchManager:
     def __init__(self, sm: StateManager, gs: GameState, renderer: GameViewRenderer):
@@ -20,8 +20,14 @@ class MatchManager:
         self.event_bus.subscribe(PlayCardToSlotAction, self.request_action)
         self.event_bus.subscribe(StartTurnAction, self.request_action)
         self.event_bus.subscribe(PlayOpCardAction, self.request_action)
+        self.event_bus.subscribe(PlaySpellCardAction, self.request_action)
         self.event_bus.subscribe(DiscardPileOpenDetail, lambda a: self.sm.enter_state(DiscardPileDetailState(self.sm, a.discard_pile, gs.cards)))
         self.event_bus.subscribe(CardToDiscardPileAction, self._handle_card_to_gy)
+        self.event_bus.subscribe(ChangeRingAction, self.request_action)
+
+        # Run the same view reconciliation used after actions so card playability
+        # reflects the initial category before the first player action.
+        self.renderer.sync(GameView.to_view(self.gs.serialize(), self.me))
 
     def _handle_card_to_gy(self, action: CardToDiscardPileAction):
         c = self.gs.cards[action.card_id]
@@ -46,11 +52,11 @@ class MatchManager:
         # 1. Local validation (instant feedback)
         ok, reason = action.can_apply(self.gs)
         if not ok:
-            print(f"Action rejected: {reason}")
-            if type(action) in { PlayCardToSlotAction, PlayOpCardAction }:
+            Printer.print(f"Action rejected: {reason}")
+            if type(action) in { PlayCardToSlotAction, PlayOpCardAction, PlaySpellCardAction, CardRingConverted }:
                 EVENT_BUS.emit(CardShouldSnapBack(self.gs.cards[action.card_id], reason)) # type: ignore
             # if type(action) == PlayOpCardAction:
-            #     EVENT_BUS.emit(CardShouldSnapBack(self))
+            #     EVENT_BUS.emit(CardSrhouldSnapBack(self))
             return
 
         # 2. Send to server (if online)
@@ -67,7 +73,20 @@ class MatchManager:
         self._apply_and_animate(action)
 
     def _apply_and_animate(self, action: GameAction) -> None:
-        action.apply(self.gs)
+        if isinstance(action, CardRingConverted):
+            old_card = self.gs.cards[action.card_id]
+            assert isinstance(old_card, RingElementCard)
+            morphism = Conversion.try_get(old_card.ring, self.gs.active_ring)
+            assert morphism is not None
+            converted_value = morphism(old_card.current_value)
+            self.gs.cards[action.card_id] = RingElementCard(
+                self.sm,
+                self.gs.active_ring,
+                converted_value,
+                card_id=action.card_id,
+            )
+        else:
+            action.apply(self.gs)
         self.renderer.sync(GameView.to_view(self.gs.serialize(), action.player_id), action)
 
 

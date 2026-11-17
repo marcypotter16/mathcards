@@ -14,8 +14,8 @@ from test import create_deck
 if TYPE_CHECKING:
     from entities.card.base import BaseCard
 from entities.card.factory import card_from_ser
-from entities.card.eor_card import EORCard
-from entities.card.op_card import OpCard, OperatorType
+from entities.card.eor_card import RingElementCard
+from entities.card.op_card import OperatorCard, OperatorType
 from entities.board import Board
 from entities.game_manager.dataclasses import (
     GameState, GameStateSer, PlayerState, PlayerStateSer,
@@ -76,7 +76,7 @@ def test_polyringquot_roundtrip():
 
 def test_opcard_roundtrip():
     for op in [OperatorType.ADD, OperatorType.INVERT, OperatorType.MUL, OperatorType.SUB]:
-        card = OpCard(GAME, op)
+        card = OperatorCard(GAME, op)
         ser = card.serialize()
         assert_json_roundtrip(asdict(ser))
         rebuilt = card_from_ser(ser, GAME)
@@ -89,7 +89,7 @@ def test_eorcard_roundtrip():
     rings = [ZZ(), QQ(), ZZn(7), PolyRing(QQ())]
     for r in rings:
         el = r.one
-        card = EORCard(GAME, r, el)
+        card = RingElementCard(GAME, r, el)
         ser = card.serialize()
         assert_json_roundtrip(asdict(ser))
         rebuilt = card_from_ser(ser, GAME)
@@ -114,8 +114,8 @@ def test_card_factory_unknown_type():
 def make_board_with_cards():
     b = Board()
     cards = {
-        1: OpCard(GAME, OperatorType.ADD, card_id=1),
-        2: EORCard(GAME, ZZ(), ZZ().one, card_id=2),
+        1: OperatorCard(GAME, OperatorType.ADD, card_id=1),
+        2: RingElementCard(GAME, ZZ(), ZZ().one, card_id=2),
     }
     # Using the new ID-based insert
     b.insert_card(cards[1].card_id, (0, 0))
@@ -183,7 +183,7 @@ def make_game_state(game: StateManager | None = None) -> GameState:
         boards={"p1": p1.board, "p2": p2.board},
         cards=cards,
         active_ring=ZZ(),
-        active_category=Category.CRings,
+        active_category=Category.CRing,
         turn="p1",
         n_actions_left=3,
         rng_seed=42,
@@ -272,9 +272,9 @@ if __name__ == "__main__":
     for t in tests:
         try:
             t()
-            print(f"PASS {t.__name__}")
+            # print(f"PASS {t.__name__}")
         except Exception as e:
             failed += 1
-            print(f"FAIL {t.__name__}: {type(e).__name__}: {e}")
-    print(f"\n{len(tests) - failed}/{len(tests)} passed")
+            # print(f"FAIL {t.__name__}: {type(e).__name__}: {e}")
+    # print(f"\n{len(tests) - failed}/{len(tests)} passed")
     raise SystemExit(0 if failed == 0 else 1)   

@@ -1,13 +1,25 @@
-from Settings import COLOR_FRACTION, COLOR_INTEGER, COLOR_POLYNOMIAL, COLOR_ZMOD, get_complementary_color, get_dimmed_color
-from entities.card.base import BaseCard
-from state_manager import StateManager
-from mathematics.base import CommUnitRing
-from mathematics.serialization import deserialize_element, deserialize_ring, serialize_element, serialize_ring
-from mathematics.vector import Vector2
-from entities.card.base import CardSer, CardType, ElementCardSer
-from tfr import TypstFormulaRenderer
-
 import pyray as rl
+
+from entities.card.base import BaseCard, ElementCardSer
+from mathematics.base import CommUnitRing
+from mathematics.serialization import (
+    deserialize_element,
+    deserialize_ring,
+    serialize_element,
+    serialize_ring,
+)
+from mathematics.vector import Vector2
+from Settings import (
+    COLOR_FRACTION,
+    COLOR_INTEGER,
+    COLOR_POLYNOMIAL,
+    COLOR_WHEN_UNPLAYABLE,
+    COLOR_ZMOD,
+    get_dimmed_color,
+)
+from state_manager import StateManager
+from utility import draw_fitted_texture
+
 
 def get_crop_header(base_font_pt) -> str:
     return (
@@ -16,7 +28,7 @@ def get_crop_header(base_font_pt) -> str:
             "#set math.frac(style: \"vertical\")\n"
         )
 
-class EORCard[T](BaseCard):
+class RingElementCard[T](BaseCard):
     """EOR = Element Of Ring: a card like "x" in ZZ[x]"""
 
     # --- Vertical Layout ---
@@ -80,39 +92,6 @@ class EORCard[T](BaseCard):
             rl.set_texture_filter(self.el_tex, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
             self.texture_is_dirty = True
 
-    def _draw_fitted_texture(self, tex: rl.Texture, bounding_box: rl.Rectangle):
-        """Draws a texture centered in a bounding box, scaling down only if it overflows."""
-        if tex is None or tex.id <= 0:
-            return
-
-        # 85% of the bounding box gives natural padding
-        max_w = bounding_box.width * 0.85
-        max_h = bounding_box.height * 0.85
-        
-        scale_w = max_w / tex.width
-        scale_h = max_h / tex.height
-        
-        # We use min(1.0, ...) so we NEVER scale up a small texture (keeps it 1:1 crisp)
-        fit_scale = min(1.0, scale_w, scale_h)
-        
-        draw_w = int(tex.width * fit_scale)
-        draw_h = int(tex.height * fit_scale)
-        
-        center_x = bounding_box.x + (bounding_box.width * 0.5)
-        center_y = bounding_box.y + (bounding_box.height * 0.5)
-        
-        dest_x = int(center_x - (draw_w * 0.5))
-        dest_y = int(center_y - (draw_h * 0.5))
-        
-        rl.draw_texture_pro(
-            tex,
-            rl.Rectangle(0, 0, tex.width, tex.height),
-            rl.Rectangle(dest_x, dest_y, draw_w, draw_h),
-            rl.Vector2(0, 0), 
-            0, 
-            rl.WHITE
-        )
-
     def bake_texture(self):
         self._ensure_render_texture()
         assert self.render_texture is not None
@@ -129,7 +108,7 @@ class EORCard[T](BaseCard):
         x = y = bt / 2
 
         # 2. Draw Full Card Background
-        rl.draw_rectangle_rounded(rl.Rectangle(x, y, W, H), 0.1, 4, self.bg_color)
+        rl.draw_rectangle_rounded(rl.Rectangle(x, y, W, H), 0.1, 4, self.bg_color if self.is_playable else COLOR_WHEN_UNPLAYABLE)
 
         # 3. Define Boxes
         # Top left (Element mini), Top right (Ring), and Center Body (Element main)
@@ -142,13 +121,13 @@ class EORCard[T](BaseCard):
         # 4. Draw Formulas
         if self.el_tex is not None:
             # Top-Left (mini)
-            self._draw_fitted_texture(self.el_tex, top_left_box)
+            draw_fitted_texture(self.el_tex, top_left_box)
             # Center (main)
-            self._draw_fitted_texture(self.el_tex, body_rect)
+            draw_fitted_texture(self.el_tex, body_rect)
 
         if self.ring_tex is not None:
             # Top-Right
-            self._draw_fitted_texture(self.ring_tex, top_right_box)
+            draw_fitted_texture(self.ring_tex, top_right_box)
 
         rl.end_texture_mode()
         self.texture_is_dirty = False
@@ -211,7 +190,7 @@ class EORCard[T](BaseCard):
             self._requeue_formulas()
 
     @classmethod
-    def from_ser(cls, cd: ElementCardSer, game: StateManager) -> "EORCard":
+    def from_ser(cls, cd: ElementCardSer, game: StateManager) -> RingElementCard:
         if cd.ring_ser is None or cd.base_element_ser is None:
             raise ValueError("EORCard.from_ser: missing ring_tag / base_value")
         ring    = deserialize_ring(cd.ring_ser)

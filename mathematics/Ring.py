@@ -1,20 +1,19 @@
 
-from random import choice, randint
-import traceback
-from typing import Any, Callable, Set, SupportsIndex
-from sympy import Poly, invert
-from sympy.abc import x
-
 from math import gcd, lcm
-from mathematics.base import Ideal, PrincipalIdeal, CommUnitRing, factorize, is_prime
+from random import choice, randint
+from typing import Any, SupportsIndex
+
+from sympy import invert
+
+from mathematics.base import CommUnitRing, Ideal, PrincipalIdeal, factorize, is_prime
 from mathematics.poly import Polynomial
 
 
 class ZZ(CommUnitRing):
     """The ring of integers"""
-    _instance: "ZZ | None" = None
+    _instance: ZZ | None = None
 
-    def __new__(cls) -> "ZZ":
+    def __new__(cls) -> ZZ:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -29,6 +28,9 @@ class ZZ(CommUnitRing):
 
     def validate(self) -> None:
         pass
+
+    def validate_element(self, element) -> bool:
+        return type(element) == int
 
     def add(self, e1, e2):
         return e1 + e2
@@ -157,7 +159,7 @@ class ZZn(CommUnitRing):
         return hash(f"ZZ{self.n}")
 
 class IntegerIdeal(PrincipalIdeal[int]):
-    def __init__(self, generators: Set[int], ring: CommUnitRing[int]) -> None:
+    def __init__(self, generators: set[int], ring: CommUnitRing[int]) -> None:
         self.generators = generators
         self.generator = gcd(*generators) if self.generators else 0
         super().__init__(self.generator, ring)
@@ -230,18 +232,18 @@ class PrincipalPolyIdeal(PrincipalIdeal[Polynomial]):
         return item // self.generator == Polynomial.zero(self.ring)
 
     def is_prime(self) -> bool:
-        print(f"Testing {self.generator}, {self.ring.typst_str}")
+        # print(f"Testing {self.generator}, {self.ring.typst_str}")
         if self.generator.is_zero:
             return True
-        if isinstance(self.coefficient_ring, ZZ) or isinstance(self.coefficient_ring, QQ):
+        if isinstance(self.coefficient_ring, (ZZ, QQ)):
             p = self.generator.to_sympy(modulus=None)
-            print(p)
+            # print(p)
             return p.is_irreducible
         if isinstance(self.coefficient_ring, ZZn):
             p = self.generator.to_sympy(modulus=self.coefficient_ring.n)
-            print(p)
+            # print(p)
             return p.is_irreducible
-        raise NotImplemented
+        raise NotImplementedError
 
     def is_maximal(self) -> bool:
         # TODO is this true?
@@ -254,7 +256,8 @@ class Frac[T]:
         if self.denom == ring.zero:
             raise ZeroDivisionError
         self.ring = ring
-        if hasattr(ring, "gcd") and hasattr(ring, "divides") and not self.num == self.ring.zero:
+        if hasattr(ring, "gcd") and hasattr(ring, "divides") and self.num != self.ring.zero:
+            # print(f"RING: {self.ring}")
             gcd = ring.gcd(self.num, self.denom) # type: ignore
             mu1 = ring.divides(gcd, self.num) # type: ignore
             mu2 = ring.divides(gcd, self.denom) # type: ignore
@@ -283,7 +286,6 @@ class Frac[T]:
             num = self.ring.add(self.ring.multiply(self.num, other.denom), self.ring.multiply(self.denom, other.num))
             return Frac(num, self.denom * other.denom)
         else: # other has to be of type T
-            other_frac = Frac(other, self.ring.one)
             num = self.ring.add(self.ring.multiply(self.num, other.denom), self.ring.multiply(self.denom, other.num))
             return Frac(num, self.denom * other.denom)
 
@@ -303,6 +305,12 @@ class Frac[T]:
         if self.denom == self.ring.one:
             return str(self.num)
         return f"(({self.num})/({self.denom}))"
+
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, type(self)) and self.num == value.num and self.denom == value.denom
+
+    def __hash__(self) -> int:
+        return hash((str(self.num), str(self.denom)))
 
     @property
     def typst_str(self) -> str:
@@ -326,17 +334,21 @@ class Frac[T]:
 #             for e2 in s:
 #                 if 
 
-class Localization[T](CommUnitRing[T]):
+class LocalizationPrimeIdeal[T](CommUnitRing[T]):
     def __init__(self, r: CommUnitRing[T], i: Ideal[T]) -> None:
         if i.ring != r:
             raise ValueError(f"Ideal {i} must be an ideal of the ring {r}")
         self.ring = r
         self.ideal = i
 
-    def validate_element(self, frac: Frac[T]) -> None:
+    def validate_element(self, frac: Frac[T]) -> bool:
         """Ensure the fraction's denominator is in the multiplicative set (not in the ideal)."""
         if frac.denom in self.ideal:
             raise ValueError(f"Denominator {frac.denom} is in the ideal {self.ideal}; it is not invertible in this localization.")
+        return True
+
+    def is_invertible(self, frac: Frac[T]) -> bool:
+        return not frac.num in self.ideal
 
     def get_random_element(self) -> Frac[T]:
         num = self.ring.get_random_element()
@@ -356,7 +368,70 @@ class Localization[T](CommUnitRing[T]):
     def __repr__(self) -> str:
         return f"{self.ring}_({self.ideal})"
 
-class FractionField(Localization):
+class LocalizationElement[T](CommUnitRing[T]):
+    def __init__(self, r: CommUnitRing[T], el: T):
+        self.ring = r
+        if not hasattr(r, "divides"):
+            raise ValueError("Ring needs to implement the divides method")
+        self.inverted_el = el
+
+    def validate_element(self, f: Frac[T]) -> bool:
+        if f.num == self.ring.zero:
+            return True
+        # Il denominatore deve essere riducibile a 1 dividendo ripetutamente per self.inverted_el
+        denom = f.denom
+        if denom == self.ring.one: # Se il denominatore è 1, è sempre valido
+            return True
+            
+        # Ciclo ideale per verificare se denom è una potenza di el 
+        # (Nota: questo loop assume che tu possa "dividere" eliminando il fattore)
+        current = denom
+        while current != self.ring.one:
+            factor = self.ring.divides(self.inverted_el, current)
+            if factor is None:
+                return False # Trovato un fattore che non c'entra con 'el'
+            # Attenzione: la logica esatta dipende da come 'divides' restituisce il quoziente
+            current = factor 
+        return True
+
+
+    def is_invertible(self, f: Frac[T]) -> bool:
+        num = f.num
+        if num == self.ring.zero:
+            return False
+        current = num
+        while current != self.ring.one:
+            factor = self.ring.divides(self.inverted_el, current)
+            if factor is None:
+                return False
+            current = factor
+        return True
+    
+
+    def get_random_element(self) -> Frac[T]:
+        num = self.ring.get_random_element()
+        fac = self.ring.get_random_element()
+        den = self.ring.multiply(fac, self.inverted_el)
+        return Frac(num, den)
+
+    def add(self, e1: Frac[T], e2: Frac[T]) -> Frac[T]:
+        return e1 + e2
+
+    def multiply(self, e1: Frac[T], e2: Frac[T]) -> Frac[T]:
+        return e1 * e2
+
+    @property
+    def typst_str(self) -> str:
+        e = self.inverted_el
+        if hasattr(e, "typst_str"):
+            return f"{self.ring.typst_str}_{e.typst_str}"
+        return f"{self.ring.typst_str}_{e}"
+
+    def __repr__(self) -> str:
+        return f"{self.ring}_{self.inverted_el}"
+
+
+class FractionField(LocalizationPrimeIdeal):
     def __init__(self, r: CommUnitRing) -> None:
         if not r.is_domain():
             raise ValueError(f"Can't create fraction field of a non domain ({r})")
@@ -373,8 +448,8 @@ class FractionField(Localization):
 
 class QQ(CommUnitRing):
     """The field of rational numbers"""
-    _instance: "QQ | None" = None
-    def __new__(cls) -> "QQ":
+    _instance: QQ | None = None
+    def __new__(cls) -> QQ:
         if cls._instance is None:
             _instance = super().__new__(cls)
         return _instance
@@ -439,6 +514,9 @@ class PolyRing[CoeffT](CommUnitRing[Polynomial[CoeffT]]):
     def is_finite(self):
         return False
 
+    def is_domain(self) -> bool:
+        return self.coefficient_ring.is_domain()
+
     def validate(self) -> None:
         # Infinite structure, skip finite axiom checks
         pass
@@ -446,9 +524,15 @@ class PolyRing[CoeffT](CommUnitRing[Polynomial[CoeffT]]):
     def get_random_element(self) -> Polynomial[CoeffT]:
         return Polynomial.create_random(self.coefficient_ring)
 
+    def gcd(self, *polynomials: Polynomial[CoeffT]) -> Polynomial[CoeffT]:
+        return Polynomial.gcd(*polynomials)
+
+    def divides(self, e1: Polynomial[CoeffT], e2: Polynomial[CoeffT]) -> Polynomial[CoeffT] | None:
+        return e1.divides(e2)
+
     def mult_inv(self, e1: Polynomial[CoeffT]) -> Polynomial[CoeffT] | None:
         if e1.is_zero or e1.deg > 0:
-            print(f"The only units of a polynomial ring are the units of its ring, so {e1} is not invertible")
+            # print(f"The only units of a polynomial ring are the units of its ring, so {e1} is not invertible")
             return None
         inv = self.coefficient_ring.mult_inv(e1.coefficients[0])
         if inv is None:
@@ -517,7 +601,7 @@ class PolyRingQuot[T](PolyRing[T], RingQuot):
             p_inv = invert(p, mod, domain=dom)
             return p_inv
         except ValueError:
-            print(f"Warning: poly {e1} has no inverse modulo {mod}")
+            # print(f"Warning: poly {e1} has no inverse modulo {mod}")
             return None
 
     @property
@@ -546,7 +630,7 @@ def find_irred_poly_in_ZZp(p: int, deg: int) -> Polynomial:
     is_irred = test_roots(poly, p)
     while not is_irred:
         poly = Polynomial.create_random(r, deg)
-        print(poly)
+        # print(poly)
         is_irred = test_roots(poly, p)
         
     return poly
@@ -557,7 +641,7 @@ class FFq(PolyRingQuot):
         if len(f) != 1:
             raise ValueError("Finite fields should have cardinality q = p^e")
         self.q = q
-        self.p = list(f.keys())[0]
+        self.p = next(iter(f.keys())) # first key
         self.e = f[self.p]
         if self.p >= 20 or self.e > 3:
             raise NotImplementedError("Finite fields implemented only up to p=19, e=3")
@@ -579,7 +663,8 @@ class FFq(PolyRingQuot):
 
 
 if __name__ == "__main__":
-    z = ZZ()
-    z1 = ZZ()
-    z2 = ZZ()
-    print(id(z) == id(z1), id(z2)) # ok they =
+    zx = PolyRing(ZZ())
+    zxx = LocalizationElement(zx, Polynomial({2: 1}, ZZ()))
+    el = Frac[Polynomial[int]](Polynomial[int]({0: 2}, ZZ()), Polynomial[int]({8: 1}, ZZ()), zx)
+    # print(el)
+    # print(zxx.validate_element(el))

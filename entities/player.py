@@ -6,10 +6,8 @@ from entities.board import Board
 from entities.card.base import BaseCard, CardId
 from entities.deck import Deck
 from entities.discard_pile import DiscardPile
-from entities.game_manager.dataclasses import ItemSer
 from entities.hand import Hand
-from entities.item import Item
-
+from entities.item import Item, ItemSer
 
 type PlayerId = str
 
@@ -35,7 +33,7 @@ class PlayerState:
         )
 
     @staticmethod
-    def deserialize(pss: PlayerStateSer, cards: dict[CardId, BaseCard]) -> 'PlayerState':
+    def deserialize(pss: PlayerStateSer, cards: dict[CardId, BaseCard]) -> PlayerState:
         return PlayerState(
             id      = pss.id,
             board   = Board.deserialize(pss.board),
@@ -58,7 +56,7 @@ class PlayerStateSer:
                              ]
 
     @classmethod
-    def from_dict(cls, d: dict) -> "PlayerStateSer":
+    def from_dict(cls, d: dict) -> PlayerStateSer:
         return cls(
             id=d["id"],
             board={k: (None if v is None else int(v)) for k, v in d["board"].items()},
@@ -72,7 +70,7 @@ class PlayerStateSer:
 @dataclass(frozen=True)
 class PlayerView:
     viewer:             PlayerId
-    board:              dict[str, CardId | None]
+    board:              Board
     hand_size:          int
     hand:               list[CardId] | None     # full cards only for me!
     deck_size:          int
@@ -85,7 +83,7 @@ class PlayerView:
         is_me = viewer == pss.id # view full details only if I am the player in question
         return PlayerView(
             viewer      = pss.id,
-            board       = pss.board,
+            board       = Board.deserialize(pss.board),
             hand_size   = len(pss.hand),
             hand        = pss.hand if is_me else None,
             deck_size   = len(pss.deck),

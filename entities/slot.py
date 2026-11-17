@@ -1,10 +1,9 @@
+# TODO IMPLEMENT SWAP TWO CARD SLOTS (USEFUL FOR CHAIN REACTIONS)
+import pyray as rl
+
 from entities.base import Entity
 from entities.card.base import BaseCard
 from mathematics.vector import Vector2
-
-# TODO IMPLEMENT SWAP TWO CARD SLOTS (USEFUL FOR CHAIN REACTIONS)
-
-import pyray as rl
 
 
 class Slot(Entity):
@@ -54,6 +53,7 @@ class Slot(Entity):
     def set_color(self, new_color: rl.Color):
         self.color = new_color
 
+    @property
     def is_free(self) -> bool:
         return self.content is None
 

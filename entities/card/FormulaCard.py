@@ -28,7 +28,7 @@ class FormulaCard(BaseCard):
         fr: FormulaResult = await wrap_future(ff)
         
         if not fr.success:
-            print(fr.stderr)
+            # print(fr.stderr)
             exit(1)
             
         instance.formula_texture = rl.load_texture(str(fr.png_path.resolve()))

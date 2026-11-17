@@ -22,7 +22,7 @@ class StateManager:
             if loaded.texture.id > 0:
                 self.font = loaded
                 rl.set_texture_filter(self.font.texture, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
-                print("GAME FONT LOADED")
+                # print("GAME FONT LOADED")
         else:
             self.font = rl.get_font_default()
 

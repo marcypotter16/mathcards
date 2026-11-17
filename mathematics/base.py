@@ -17,7 +17,7 @@ def _op(operation: BinaryOp[T], a: T, b: T) -> T:
 
 class Category(StrEnum):
     AbGp    = "Abelian_Groups"
-    CRings  = "Commutative_Rings"
+    CRing  = "Commutative_Rings"
 
 class AlgebraicStructure[T]:
     def validate(self):
@@ -31,6 +31,9 @@ class AlgebraicStructure[T]:
         return NotImplemented
 
     def get_random_element(self) -> T:
+        return NotImplemented
+
+    def validate_element(self, element) -> bool:
         return NotImplemented
 
     def __contains__(self, item):
@@ -55,7 +58,7 @@ class AlgebraicStructure[T]:
                     is_identity = False
                     break
             if is_identity:
-                print(f"Neutral element is {candidate}")
+                # print(f"Neutral element is {candidate}")
                 return candidate
         return None
 
@@ -74,7 +77,7 @@ class AlgebraicStructure[T]:
                     break
                     
             if is_one:
-                print(f"Multiplicative identity (1) is {candidate}")
+                # print(f"Multiplicative identity (1) is {candidate}")
                 return candidate
                 
         raise NeutralElementNotFound("Validation Failed: No multiplicative identity found.")
@@ -163,7 +166,7 @@ class AdditiveGroup[T](AlgebraicStructure[T]):
         if not res:
             raise OperationNotAssociative(f"Validation Failed: Associativity fails.")
 
-        print(f"Group successfully validated! Identity is {self.zero}.")
+        # print(f"Group successfully validated! Identity is {self.zero}.")
 
 
 class AbelianGroup[T](AdditiveGroup[T]):
@@ -239,7 +242,7 @@ class CommUnitRing[T](AbelianGroup[T]):
                     if left != right:
                         raise RingProductNotDistributive(f"({e}+{f}){g} = {left} != {e}*{g} + {f}*{g} = {right}")
 
-        print("Ring is distributive and OK")
+        # print("Ring is distributive and OK")
 
     def divides(self, e1: T, e2: T) -> T | None:
         """If e1 divides e2 it returns x such that e1 * x = e2, otherwise returns None"""
@@ -378,4 +381,4 @@ if __name__ == "__main__":
         1: 0
     }
     mo = Morphism(g1, g2, mapping)
-    print(mo.kernel, mo.image) # {0, 1} {0}
+    # print(mo.kernel, mo.image) # {0, 1} {0}

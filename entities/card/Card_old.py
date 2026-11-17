@@ -64,7 +64,7 @@ class Card_OLD(BaseCard):
             self.card_data = card_data
         else:
             self.card_data = CardData(rank, suit)
-        print(self.card_data.suit)
+        # print(self.card_data.suit)
         if self.card_data.suit != Suit.NONE:
             self.set_data(self.card_data)
         self.width, self.height                         = 150, 225

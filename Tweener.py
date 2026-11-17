@@ -1,7 +1,8 @@
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Generic, Literal, Protocol, TypeVar, Any, runtime_checkable
+from typing import Any, Generic, Literal, Protocol, TypeVar, runtime_checkable
 
 from mathematics.vector import Vector2
 
@@ -192,4 +193,4 @@ if __name__ == "__main__":
     tm.add_tween(t)
     for _ in range(120):
         tm.update(1/60)
-        print(o.position)
+        # print(o.position)

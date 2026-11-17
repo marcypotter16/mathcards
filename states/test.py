@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 from pyray import RenderTexture
 
-from entities.card.op_card import OpCard, OperatorType
+from entities.card.op_card import OperatorCard, OperatorType
 from entities.card.placeholder import PlaceholderCard
 from entities.game_manager.dataclasses import GameView
 from entities.game_manager.manager import MatchManager

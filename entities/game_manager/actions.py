@@ -1,14 +1,21 @@
+from __future__ import annotations
+
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
+import pyray as rl
+
+from draw_debug import arm_draw_trace, draw_debug
 from entities.card.base import BaseCard, CardId
+from entities.printer import Printer
+from mathematics.serialization import deserialize_ring
+
 if TYPE_CHECKING:
     from entities.discard_pile import DiscardPile
     from entities.game_manager.dataclasses import GameState, PlayerId
-from entities.game_manager.dataclasses import GameState
 from entities.game_manager.events import EVENT_BUS
-from entities.printer import Printer
 from mathematics.vector import Vector2
 
 
@@ -55,6 +62,7 @@ class PlayCardToSlotAction:
         game.boards[self.player_id].grid[f"{self.coords[0]},{self.coords[1]}"] = self.card_id
         game.players[self.player_id].hand.cards.remove(self.card_id)
         game.n_actions_left -= 1
+        # game.apply_after_action()
 
 @dataclass(frozen=True)
 class CardToDiscardPileAction:
@@ -88,9 +96,6 @@ class PlayOpCardAction(Action):
         me.discard.cards.append(self.card_id)
         EVENT_BUS.emit(CardToDiscardPileAction(self.player_id, self.card_id))
 
-        # 2. Args: board slot -> gy
-        #    (their owner is whoever owns the slot — for now assume it's me,
-        #     matching your current TODO)
         for cid in self.arguments:
             for row in range(me.board.N_ROWS):
                 for col in range(me.board.N_COLS):
@@ -109,13 +114,92 @@ class PlayOpCardAction(Action):
         # (se gioco una op card sulle carte avversarie)
 
 @dataclass(frozen=True)
+class PlaySpellCardAction(Action):
+    player_id:  PlayerId
+    card_id:    CardId
+    targets:    list[CardId]
+
+    def can_apply(self, gs: GameState) -> tuple[bool, str | None]:
+        if self.player_id != gs.turn:
+            return False, "not your turn"
+        if gs.n_actions_left <= 0:
+            return False, "no actions left"
+        if self.card_id not in gs.players[self.player_id].hand.cards:
+            return False, "card not in hand"
+
+        spell_card = gs.cards[self.card_id]
+        spell = getattr(spell_card, "spell", None)
+        assert spell is not None
+        from spell_db import SPELL_ACTIONS
+
+        handler = SPELL_ACTIONS.get(spell)
+        if handler is None:
+            return False, f"unknown spell: {spell}"
+        return handler["can_apply"](gs, self.targets, self.player_id)
+
+    def apply(self, gs: GameState) -> None:
+        me = gs.players[self.player_id]
+        spell_card = gs.cards[self.card_id]
+        spell = getattr(spell_card, "spell", None)
+        from spell_db import SPELL_ACTIONS
+
+        handler = SPELL_ACTIONS.get(spell)
+        if handler is None:
+            reason = f"unknown spell: {spell}"
+            Printer.print(reason, color=rl.RED)
+            EVENT_BUS.emit(CardShouldSnapBack(spell_card, reason=reason))
+            return
+        try:
+            # Resolve first so a failed effect leaves hand, board, and discard intact.
+            handler["action"](gs, self.targets, self.player_id)
+        except Exception as error:
+            Printer.print(str(error), color=rl.RED)
+            EVENT_BUS.emit(CardShouldSnapBack(spell_card, reason=str(error)))
+            return
+
+        me.hand.cards.remove(self.card_id)
+        me.discard.cards.append(self.card_id)
+        EVENT_BUS.emit(CardToDiscardPileAction(self.player_id, self.card_id))
+        
+        # 3. Action cost
+        gs.n_actions_left -= 1
+        # gs.apply_after_action()
+
+@dataclass(frozen=True)
+class CardRingConverted(Action):
+    actor:      PlayerId
+    card_id:    CardId
+    to_ring:    dict[str, Any]
+
+    def can_apply(self, gs: GameState) -> tuple[bool, str | None]:
+        # c = gs.cards[self.card_id]
+        # if not isinstance(c, RingElementCard):
+        #     return False, "only ring elements can be converted"
+        # r1 = c.ring
+        # r2 = gs.active_ring
+        # mor = Conversion.try_get(r1, r2)
+        # if mor is None:
+        #     return False, f"no canonical map from {r1} to {r2}"
+        # return True, None
+        return True, None
+        ### SHOULD BE CHECKED IN RING MANAGER UI ###
+
+    def apply(self, gs: GameState) -> None:
+        raise NotImplementedError("CardRingConverted must be applied by MatchManager")
+
+@dataclass(frozen=True)
 class CardInserted(Action):
     actor:      PlayerId
     card_id:    CardId
 
 @dataclass(frozen=True)
-class CardEndedDragging(Action):
+class OpCardStartResolving(Action):
+    actor:      PlayerId
     card_id:    CardId
+
+@dataclass(frozen=True)
+class CardEndedDragging(Action):
+    card:       BaseCard
     position:   Vector2
 
 @dataclass(frozen=True)
@@ -136,17 +220,28 @@ class DrawCardAction(Action):
         deck = gs.players[self.player_id].deck
         if not deck.can_draw(self.amount):
             return False, f"Deck has {deck.size} cards, trying to draw {self.amount}."
-        if not gs.turn == self.player_id:
+        if gs.turn != self.player_id:
             return False, "Can't draw outside my turn."
         if gs.n_actions_left <= 0:
             return False, "Not enough actions left this turn."
         return True, None
 
     def apply(self, gs: GameState):
+        arm_draw_trace()
         card = gs.players[self.player_id].deck.cards.pop()
+        hand_before = list(gs.players[self.player_id].hand.cards)
         gs.players[self.player_id].hand.insert_card(card)
         gs.n_actions_left -= 1
+        draw_debug(
+            "DrawCardAction.apply",
+            f"actor={self.player_id}",
+            f"card={card}",
+            f"hand_before={hand_before}",
+            f"hand_after={gs.players[self.player_id].hand.cards}",
+            f"deck_remaining={gs.players[self.player_id].deck.size}",
+        )
         EVENT_BUS.emit(CardInserted(self.player_id, card))
+
 
 @dataclass(frozen=True)
 class DiscardToDrawAction(Action):
@@ -158,7 +253,7 @@ class StartTurnAction(Action):
     player_id:              PlayerId
 
     def apply(self, gs: GameState) -> None:
-        Printer.print(f"Starting turn for {self.player_id}")
+        # Printer.print(f"Starting turn for {self.player_id}")
         gs.n_actions_left = 3
 
 @dataclass(frozen=True)
@@ -166,14 +261,18 @@ class EndTurnAction(Action):
     player_id:              PlayerId
 
     def apply(self, gs: GameState) -> None:
-        Printer.print(f"Ending turn for {self.player_id}")
+        # Printer.print(f"Ending turn for {self.player_id}")
         gs.turn = "p2" if gs.turn == "p1" else "p1"
         EVENT_BUS.emit(StartTurnAction(gs.turn))
 
 @dataclass(frozen=True)
 class ChangeRingAction(Action):
     player_id:              PlayerId
-    ring_ser:               dict[str, Any]          # the target ring
+    ring_ser:               dict[str, Any]        # the target ring
+
+    def apply(self, gs: GameState) -> None:
+        gs.active_ring = deserialize_ring(self.ring_ser)
+        
 
 @dataclass(frozen=True)
 class AttackTargetAction(Action):
@@ -208,7 +307,7 @@ class ActionEnvelope:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "ActionEnvelope":
+    def from_dict(cls, d: dict) -> ActionEnvelope:
         at = ActionType[d["action_type"]]
         payload = d["action"]
         factory = _ACTION_FACTORIES[at]

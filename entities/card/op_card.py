@@ -1,12 +1,12 @@
 from enum import StrEnum
 from typing import Literal
-from Settings import COLOR_OP
-from entities.card.base import BaseCard, OperatorCardSer
-from state_manager import StateManager
-from mathematics.vector import Vector2
-from tfr import TypstFormulaRenderer
 
 import pyray as rl
+
+from entities.card.base import BaseCard, OperatorCardSer
+from mathematics.vector import Vector2
+from Settings import COLOR_OP, COLOR_WHEN_UNPLAYABLE
+from state_manager import StateManager
 
 
 class OperatorType(StrEnum):
@@ -40,7 +40,7 @@ def get_contrast_color(bg: rl.Color) -> rl.Color:
     luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
     return rl.BLACK if luminance > 0.5 else rl.WHITE
 
-class OpCard(BaseCard):
+class OperatorCard(BaseCard):
     """An operator card, like "+", "-", and so on."""
 
     OPT2TYPST:  dict[OperatorType, str] = {
@@ -68,6 +68,7 @@ class OpCard(BaseCard):
         self.is_slottable = False
         
         self.bg_color = COLOR_OP
+        self.bg_color_when_not_playable = COLOR_WHEN_UNPLAYABLE
         self.border_thickness = 8
         self.border_color = rl.BLACK
         self.text_color = get_contrast_color(self.bg_color)
@@ -107,6 +108,8 @@ class OpCard(BaseCard):
     def bake_texture(self):
         self._ensure_render_texture()
         assert self.render_texture is not None
+
+        bg_col = self.bg_color if self.is_playable else self.bg_color_when_not_playable
         
         rl.begin_texture_mode(self.render_texture)
         rl.clear_background(rl.BLANK)
@@ -120,7 +123,7 @@ class OpCard(BaseCard):
         rl.draw_rectangle_rounded(rl.Rectangle(0, 0, W + bt, H + bt), 0.1, 4, self.border_color)
 
         # 2. Draw Card Background (Inset by bt/2)
-        rl.draw_rectangle_rounded(rl.Rectangle(offset, offset, W, H), 0.1, 4, self.bg_color)
+        rl.draw_rectangle_rounded(rl.Rectangle(offset, offset, W, H), 0.1, 4, bg_col)
 
         # 3. Draw Top-Left Label
         label_map = {
@@ -195,6 +198,6 @@ class OpCard(BaseCard):
             )
 
     @classmethod
-    def from_ser(cls, sd: OperatorCardSer, g: StateManager) -> "OpCard":
+    def from_ser(cls, sd: OperatorCardSer, g: StateManager) -> OperatorCard:
         op = OperatorType[sd.operator] if isinstance(sd.operator, str) else sd.operator
         return cls(g, op, card_id=sd.id)

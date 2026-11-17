@@ -1,19 +1,22 @@
-from abc import ABC
-from enum import StrEnum, auto
 import itertools
-from typing import Any, Callable, Literal
+from abc import ABC
+from collections.abc import Callable
+from dataclasses import dataclass
+from enum import StrEnum, auto
+from typing import Any, Literal
 
-from Tweener import Tween, TweenManager, TweenParams
+import pyray as rl
+
 from entities.base import Entity
 from mathematics.vector import Vector2
-import pyray as rl
-from dataclasses import dataclass
+from Tweener import Tween, TweenManager, TweenParams
 
 type CardId = int
 
 class CardType(StrEnum):
     ELEMENT                 = auto() # e.g., a 4
     OPERATOR                = auto() # e.g., a "+" or "Invert"
+    SPELL                   = auto()
     
 @dataclass(frozen=True)
 class ElementCardSer:
@@ -30,7 +33,13 @@ class OperatorCardSer:
     arity:                  int | Literal["n-ary"]
     card_type:              Literal[CardType.OPERATOR] = CardType.OPERATOR
 
-type CardSer                = ElementCardSer | OperatorCardSer
+@dataclass(frozen=True)
+class SpellCardSer:
+    id:                     int
+    spell:                  str
+    card_type:              Literal[CardType.SPELL] = CardType.SPELL
+
+type CardSer                = ElementCardSer | OperatorCardSer | SpellCardSer
 
 
 class BaseCard(Entity, ABC):
@@ -61,6 +70,9 @@ class BaseCard(Entity, ABC):
         self.render_texture:        rl.RenderTexture | None = None
         self.back_tex:              rl.Texture
         self.is_slottable:          bool
+        self.is_playable:           bool            = True
+        self.texture_is_dirty:      bool
+        self.tex:                   rl.Texture
 
         self.tm:                    TweenManager    = TweenManager()
     
@@ -77,7 +89,7 @@ class BaseCard(Entity, ABC):
         return NotImplemented
     
     def get_center_after_hover(self) -> Vector2:
-        return self.center + Vector2(0, -1) * .1 * self.DIMENSIONS.y
+        return self.center + Vector2(0, -1) * .2 * self.DIMENSIONS.y
     
     def place_card(self, new_pos: Vector2):
         """This actually resets the card's before-hover and before-drag centers to the new position"""

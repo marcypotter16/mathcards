@@ -1,18 +1,18 @@
 # event_bus.py
 from collections import defaultdict
-from typing import Callable, Any
+from collections.abc import Callable
+from typing import Any
 
-from entities.printer import Printer
 
 class EventBus:
     def __init__(self):
         self._subscribers = defaultdict(list)
         # Printer.print("Event bus initialized")
-        print("Event bus initialized")
+        # print("Event bus initialized")
 
     def subscribe(self, event_type: type, callback: Callable):
         # Printer.print(f"{callback} subscribed to event {event_type}")
-        print(f"\n{callback} subscribed to event {event_type}")
+        # print(f"\n{callback} subscribed to event {event_type}")
         self._subscribers[event_type].append(callback)
 
     def emit(self, event: Any):

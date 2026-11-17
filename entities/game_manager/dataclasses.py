@@ -1,24 +1,14 @@
-from enum import StrEnum, Enum, auto
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from dataclasses import dataclass
+from typing import Any
 
-from entities.card.base import CardId, CardSer, BaseCard
+from entities.board import Board
+from entities.card.base import BaseCard, CardId, CardSer
 from entities.card.factory import card_from_ser, card_ser_from_dict
-from entities.item import ItemSer
 from entities.player import PlayerId, PlayerState, PlayerStateSer, PlayerView
+from mathematics.base import Category, CommUnitRing
+from mathematics.serialization import deserialize_ring, serialize_ring
 from state_manager import StateManager
 
-from entities.hand import Hand
-from entities.board import Board
-from entities.deck import Deck
-from mathematics.base import Category, CommUnitRing
-
-if TYPE_CHECKING:
-    from entities.item import Item
-
-from mathematics.serialization import deserialize_ring, serialize_ring
-
-from dataclasses import dataclass
 
 @dataclass
 class GameState:
@@ -47,7 +37,7 @@ class GameState:
         )
 
     @staticmethod
-    def deserialize(gss: GameStateSer, game: StateManager) -> 'GameState':
+    def deserialize(gss: GameStateSer, game: StateManager) -> GameState:
         cards = {
             cid: card_from_ser(ser, game) for cid, ser in gss.cards.items()
         }
@@ -58,8 +48,6 @@ class GameState:
         players = {
             pid: PlayerState.deserialize(pss, cards) for pid, pss in gss.players.items()
         }
-
-        boards = gss.boards
 
         return GameState(
             players         = players,
@@ -85,7 +73,7 @@ class GameStateSer:
     rng_seed:           int
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "GameStateSer":
+    def from_dict(cls, d: dict[str, Any]) -> GameStateSer:
         return cls(
             players={pid: PlayerStateSer.from_dict(p) for pid, p in d["players"].items()},
             boards={
@@ -108,18 +96,18 @@ class GameView:
     me:              PlayerId
     players:         dict[PlayerId, PlayerView]
     cards:           dict[CardId, CardSer]
-    active_ring:     dict[str, Any]
+    active_ring:     CommUnitRing
     active_category: str
     turn:            PlayerId
     n_actions_left:  int
 
     @staticmethod
-    def to_view(gss: GameStateSer, viewer: PlayerId) -> "GameView":
+    def to_view(gss: GameStateSer, viewer: PlayerId) -> GameView:
         return GameView(
             me=viewer,
             players={pid: PlayerView.to_view(pss, viewer) for pid, pss in gss.players.items()},
             cards=gss.cards,
-            active_ring=gss.active_ring,
+            active_ring=deserialize_ring(gss.active_ring),
             active_category=gss.active_category,
             turn=gss.turn,
             n_actions_left=gss.n_actions_left,

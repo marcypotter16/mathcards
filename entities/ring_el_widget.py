@@ -12,7 +12,7 @@ from entities.ring_inputs.integer_input import IntegerInput
 from entities.ring_inputs.fraction_input import FractionInput
 from entities.ring_inputs.polynomial_input import PolynomialInput
 from mathematics.base import CommUnitRing
-from mathematics.ring import ZZ, ZZn, QQ, FractionField, Localization, PolyRing, PolyRingQuot
+from mathematics.ring import ZZ, ZZn, QQ, FractionField, LocalizationPrimeIdeal, PolyRing, PolyRingQuot
 from tfr import TypstFormulaRenderer
 
 
@@ -49,7 +49,7 @@ class RingElementConstructor(Entity):
         match ring:
             case PolyRingQuot() | PolyRing():
                 self._delegate = PolynomialInput(**kwargs)
-            case QQ() | FractionField() | Localization():
+            case QQ() | FractionField() | LocalizationPrimeIdeal():
                 self._delegate = FractionInput(**kwargs)
             case ZZn() | ZZ():
                 self._delegate = IntegerInput(**kwargs)

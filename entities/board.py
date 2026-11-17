@@ -23,6 +23,10 @@ class Board:
             raise self.SlotOccupiedError(f"Trying to insert a card in an occupied slot {slot}")
         self.grid[key] = cid
 
+    @property
+    def is_full(self) -> bool:
+        return all(c is not None for c in self.grid.values())
+
     def serialize(self) -> dict[str, CardId | None]:
         return self.grid
 

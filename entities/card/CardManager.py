@@ -1,11 +1,11 @@
-from typing import Sequence
 
 import pyray as rl
-from entities.card.base import BaseCard
+
 from entities.base import Entity
+from entities.card.base import BaseCard
 from entities.game_manager.actions import CardEndedDragging, CardStartedDragging
 from entities.game_manager.events import EVENT_BUS
-from mathematics.vector import Vector2
+
 
 class CardManager(Entity):
     def __init__(self) -> None:
@@ -34,11 +34,19 @@ class CardManager(Entity):
 
     def bring_card_above_others(self, c: BaseCard):
         self._cached_hovered_card_z_index = c.z_index
+        # print(
+        #     f"[DND] raise card={type(c).__name__}#{c.card_id} "
+        #     f"manager={id(self)} old_z={c.z_index} cache={self._cached_hovered_card_z_index}"
+        # )
         c.z_index = 100
         self._needs_sorting = True
 
     def undo_card_above_others(self, card):
         if card is not None and self._cached_hovered_card_z_index is not None:
+            # print(
+            #     f"[DND] restore card={type(card).__name__}#{card.card_id} "
+            #     f"manager={id(self)} z={card.z_index}->{self._cached_hovered_card_z_index}"
+            # )
             card.z_index = self._cached_hovered_card_z_index
             self._cached_hovered_card_z_index = None
             self._needs_sorting = True
@@ -48,7 +56,6 @@ class CardManager(Entity):
             card.unload()
 
     def update(self, dt: float):
-        self._needs_sorting = False
         mouse_pos = rl.get_mouse_position()
         mouse_down = rl.is_mouse_button_down(rl.MouseButton.MOUSE_BUTTON_LEFT)
         
@@ -93,13 +100,26 @@ class CardManager(Entity):
                     # self.undo_card_above_others(card)
                     # self._dragged_card = None
                     # card.state.ended_dragging = True
-                    EVENT_BUS.emit(CardEndedDragging(card.card_id, card.center))
+                    # print(
+                    #     f"[DND] release card={type(card).__name__}#{card.card_id} "
+                    #     f"manager={id(self)} z={card.z_index} cache={self._cached_hovered_card_z_index} "
+                    #     f"center={card.center} mouse={mouse_pos}"
+                    # )
+                    EVENT_BUS.emit(CardEndedDragging(card, card.center))
+                    # Drop handlers use different actions for board, operator, and
+                    # spell cards, so clear the pointer state for every release.
+                    # if self._dragged_card is card:
+                    #     self._dragged_card = None
 
             card.update(dt)
             card.state.update_last_frame_vars()
 
         if self._needs_sorting:
             self.sort_by_z_index()
+            # print(
+            #     f"[DND] sorted manager={id(self)} "
+            #     f"order={[f'{type(c).__name__}#{c.card_id}:z{c.z_index}' for c in self.cards]}"
+            # )
             self._needs_sorting = False
     
     def render(self, logical_texture: rl.RenderTexture | None = None):

@@ -30,3 +30,11 @@ COLOR_ZMOD       = rl.Color(50, 159, 134, 255) # Light Orange/Peach
 # COLOR_OP_MUL     = rl.Color(120, 200, 160, 255) # Teal/Green
 # COLOR_OP_INVERT  = rl.Color(190, 150, 255, 255) # Purple
 COLOR_OP        = rl.Color(112, 85, 160, 255)
+COLOR_WHEN_UNPLAYABLE = rl.GRAY
+
+MIN_DECK_SIZE = 30
+MAX_DECK_SIZE = 60
+### BOUNDS ON RING ELEMENTS
+MIN_INTEGER = -20
+MAX_INTEGER = 20
+MAX_POL_DEG = 3

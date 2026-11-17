@@ -3,7 +3,16 @@
 from typing import Any
 from mathematics.base import CommUnitRing
 from mathematics.poly import Polynomial
-from mathematics.ring import QQ, ZZ, PolyRing, PolyRingQuot, Frac, PrincipalPolyIdeal, ZZn
+from mathematics.ring import (
+    QQ,
+    ZZ,
+    PolyRing,
+    PolyRingQuot,
+    Frac,
+    LocalizationElement,
+    PrincipalPolyIdeal,
+    ZZn,
+)
 
 # ---------- Elements ----------
 
@@ -62,6 +71,12 @@ def serialize_ring(ring: CommUnitRing) -> dict[str, Any]:
     if isinstance(ring, ZZ):    return {"kind": "ZZ"}
     if isinstance(ring, QQ):    return {"kind": "QQ"}
     if isinstance(ring, ZZn):   return {"kind": "ZZn", "n": ring.n}
+    if isinstance(ring, LocalizationElement):
+        return {
+            "kind": "localization_element",
+            "ring": serialize_ring(ring.ring),
+            "inverted_el": serialize_element(ring.inverted_el),
+        }
     if isinstance(ring, PolyRingQuot):
         return {
             "kind": "polyring_quot",
@@ -86,6 +101,10 @@ def deserialize_ring(data: dict[str, Any]) -> CommUnitRing:
     if kind == "ZZ":  return ZZ()
     if kind == "QQ":  return QQ()
     if kind == "ZZn": return ZZn(data["n"])
+    if kind == "localization_element":
+        base_ring = deserialize_ring(data["ring"])
+        inverted_el = deserialize_element(data["inverted_el"], base_ring)
+        return LocalizationElement(base_ring, inverted_el)
     if kind == "polyring":
         coeff = deserialize_ring(data["coeff_ring"])
         return PolyRing(coeff)
@@ -101,9 +120,9 @@ def deserialize_ring(data: dict[str, Any]) -> CommUnitRing:
 if __name__ == "__main__":
     def test_ring(ring):
         zser = serialize_ring(ring)
-        print(ring)
-        print(zser)
-        print(deserialize_ring(zser), "\n")
+        # print(ring)
+        # print(zser)
+        # print(deserialize_ring(zser), "\n")
 
     z = ZZ()
     test_ring(z)

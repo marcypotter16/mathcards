@@ -1,21 +1,23 @@
-from typing import Any
 
+import pyray as rl
 from pyray import RenderTexture
 
 from entities.base import Entity
-from entities.card.base import BaseCard
-from entities.card.factory import card_from_ser
-from entities.card.base import CardId
-from entities.game_manager.actions import CardEndedDragging, CardShouldSnapBack, PlayCardToSlotAction
+from entities.board import Board
+from entities.card.base import BaseCard, CardId
+from entities.game_manager.actions import (
+    CardEndedDragging,
+    PlayCardToSlotAction,
+)
 from entities.game_manager.events import EVENT_BUS
 from entities.player import PlayerId, PlayerView
 from entities.slot import Slot
+from interfaces import DropResult
+from interfaces import DropZone
 from mathematics.vector import Vector2
-from entities.printer import Printer
 
-import pyray as rl
 
-class BoardManager(Entity):
+class BoardManager(Entity, DropZone):
     """It's a 3col x 2row grid of Slots"""
     NCOL = 6
     NROW = 1
@@ -31,10 +33,18 @@ class BoardManager(Entity):
         self.is_mine = pw.viewer == self.me
         self.center = center
         self.cards = cards
-        EVENT_BUS.subscribe(CardEndedDragging, self._handle_card_ended_drag)
         self._fill_grid()
 
         # self.glow_slots = False
+
+    @property
+    def rect(self) -> rl.Rectangle:
+        return rl.Rectangle(
+            self.topleft.x,
+            self.topleft.y,
+            self.width,
+            self.height
+        )
 
     @property
     def width(self) -> float:
@@ -54,8 +64,8 @@ class BoardManager(Entity):
         for slot in self.slotgrid.values():
             slot.place_center(slot.center + offset)
 
-    def sync(self, board_view: dict[str, CardId | None], cards: dict[CardId, BaseCard]):
-        for key, cid in board_view.items():
+    def sync(self, board_view: Board, cards: dict[CardId, BaseCard]):
+        for key, cid in board_view.grid.items():
             row, col = map(int, key.split(","))
             slot = self.slotgrid[(row, col)]
             
@@ -70,6 +80,21 @@ class BoardManager(Entity):
                     continue
                 slot.content = None
 
+    def try_accept_drop(self, act: CardEndedDragging) -> DropResult:
+        if not self.is_mine:
+            return DropResult.Outside
+        if not act.card.is_playable:
+            return DropResult.InsideInvalid
+        if self.pw.board.is_full:
+            return DropResult.Outside
+        for coord, slot in self.slotgrid.items():
+            if rl.check_collision_point_rec(act.position.raylib_ref, slot.rec):
+                if not slot.is_free:
+                    return DropResult.InsideInvalid
+                EVENT_BUS.emit(PlayCardToSlotAction(self.pw.viewer, act.card.card_id, coord))
+                return DropResult.Accepted
+        return DropResult.Outside
+
     def _fill_grid(self):
         for row in range(self.NROW):
             for col in range(self.NCOL):
@@ -82,23 +107,6 @@ class BoardManager(Entity):
                 
                 s.place_topleft(Vector2(x, y))
                 self.slotgrid[(row, col)] = s
-
-    def _handle_card_ended_drag(self, act: CardEndedDragging):
-        if not self.is_mine:
-            return
-        
-        pos = act.position
-        for coord, slot in self.slotgrid.items():
-            if rl.check_collision_point_rec(pos.raylib_ref, slot.rec):
-                if slot.is_free():
-                    EVENT_BUS.emit(PlayCardToSlotAction(self.pw.viewer, act.card_id, coord))
-                    return
-                else:
-                    EVENT_BUS.emit(CardShouldSnapBack(self.cards[act.card_id], reason="Slot occupied"))
-                    return
-        else:
-            print("\n", pos, self.center, "\n")
-            EVENT_BUS.emit(CardShouldSnapBack(self.cards[act.card_id], reason="Dropped outside of board"))
 
     def update(self, dt: float) -> None:
         for slot in self.slotgrid.values():

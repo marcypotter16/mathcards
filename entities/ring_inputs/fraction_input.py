@@ -12,7 +12,7 @@ import pyray as rl
 
 from entities.ring_inputs.base import BaseElementInput
 from mathematics.base import CommUnitRing
-from mathematics.ring import Frac, FractionField, Localization, QQ
+from mathematics.ring import Frac, FractionField, LocalizationPrimeIdeal, QQ
 from tfr import TypstFormulaRenderer
 
 
@@ -187,7 +187,7 @@ class FractionInput(BaseElementInput):
         # additionally enforce that the denominator is invertible (not in the
         # ideal). If this raises, the value was not valid for this ring; the
         # caller is responsible for having blocked confirm beforehand.
-        if isinstance(self.ring, Localization):
+        if isinstance(self.ring, LocalizationPrimeIdeal):
             self.ring.validate_element(frac)
 
         return frac
@@ -200,7 +200,7 @@ class FractionInput(BaseElementInput):
 
         # For Localization/FractionField, the denominator must not lie in the
         # ideal (i.e. it must be invertible in the localization).
-        if isinstance(self.ring, Localization):
+        if isinstance(self.ring, LocalizationPrimeIdeal):
             num_val = self._parse_int(self._num_str) or 0
             candidate = Frac(num_val, den_val)
             try:

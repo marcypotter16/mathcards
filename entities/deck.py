@@ -15,7 +15,7 @@ class Deck:
     def draw_cards(self, amount: int = 1) -> list[CardId]:
         if not self.can_draw(amount):
             raise IndexError("Trying to draw more cards then cards in deck.")
-        print(f"Drawing {amount} cards from {self}")
+        # print(f"Drawing {amount} cards from {self}")
         l = []
         for _ in range(amount):
             l.append(self.cards.pop())

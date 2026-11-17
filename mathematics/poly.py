@@ -1,17 +1,18 @@
-import math
+from collections.abc import Callable
 from random import randint
-from typing import Callable, Dict, List, TypeVar
+from typing import TypeVar
+
 from sympy import Poly
 from sympy.abc import x
 from sympy.core.cache import clear_cache
 
 from mathematics.base import CommUnitRing
 
-T_cov = TypeVar('T_cov', covariant=True)
+T_co = TypeVar('T_co', covariant=True)
 
 
 class Polynomial[T]:
-    def __init__(self, coefficients: Dict[int, T], ring: CommUnitRing[T]) -> None:
+    def __init__(self, coefficients: dict[int, T], ring: CommUnitRing[T]) -> None:
         self.ring = ring
         self.coefficients = coefficients
         if hasattr(ring, "reduce_mod"):
@@ -64,8 +65,11 @@ class Polynomial[T]:
             
         return Poly(high_to_low_coeffs, x)
 
-    def divides(self, other: Polynomial[T]) -> bool:
-        return other.reduce_mod(self).is_zero
+    def divides(self, other: Polynomial[T]) -> Polynomial[T] | None:
+        quot, rem = other.divmod(self)
+        if rem.is_zero:
+            return quot
+        return None
 
     def evaluate(self, num: T) -> T:
         res = self.ring.zero
@@ -109,7 +113,97 @@ class Polynomial[T]:
 
         return rem
 
-    def __add__(self, other: 'Polynomial[T]') -> 'Polynomial[T]':
+    def divmod(self, mod: Polynomial[T]) -> tuple[Polynomial[T], Polynomial[T]]:
+        if not mod.coefficients:
+            raise ZeroDivisionError("Cannot reduce modulo the 0 polynomial")
+        
+        # Inizializziamo il resto come una copia del dividendo (self)
+        rem = Polynomial[T](dict(self.coefficients), self.ring)
+        # Dizionario per accumulare i coefficienti del quoziente
+        quot_coeffs: dict[int, T] = {}
+        
+        while True:
+            if rem.is_zero or rem.deg < mod.deg:
+                break
+                
+            # Verifica se il coefficiente direttore del divisore divide quello del resto corrente
+            val = self.ring.divides(mod.LC, rem.LC) # Restituisce il fattore (rem.LC / mod.LC) o None
+            if not val:
+                raise ValueError(f"LC of modulus does not divide LC of dividend: {mod.LC} vs {rem.LC}")
+            
+            # Calcoliamo il grado del termine corrente del quoziente
+            deg_diff = rem.deg - mod.deg
+            
+            # Accumuliamo il termine nel quoziente. Se il grado esiste già, lo sommiamo tramite l'anello
+            if deg_diff in quot_coeffs:
+                quot_coeffs[deg_diff] = self.ring.add(quot_coeffs[deg_diff], val)
+            else:
+                quot_coeffs[deg_diff] = val
+            
+            # Sottraiamo dal resto: (termine_quoziente * mod)
+            term = self.monomial(val, deg_diff, self.ring)
+            rem -= term * mod
+        
+        # Creiamo l'oggetto Polynomial per il quoziente
+        quot = Polynomial[T](quot_coeffs, self.ring)
+        
+        return quot, rem
+
+
+    @classmethod
+    def gcd(cls, *polynomials: Polynomial[T]) -> Polynomial[T]:
+        """
+        Calculates the Greatest Common Divisor (GCD) of a variable number of polynomials.
+        Returns a monic polynomial (if the ring allows it) representing the GCD.
+        """
+        if not polynomials:
+            raise ValueError("At least one polynomial must be provided to calculate GCD.")
+            
+        # Prende il primo polinomio per fare i controlli sull'anello di appartenenza
+        first = polynomials[0]
+        ring = first.ring
+        
+        # Se c'è un solo polinomio, il GCD è il polinomio stesso (reso monico se applicabile)
+        if len(polynomials) == 1:
+            return first
+
+        # Verifica che tutti i polinomi appartengano allo stesso anello
+        for p in polynomials:
+            if p.ring != ring:
+                raise ValueError("All polynomials must belong to the same coefficient ring to compute GCD.")
+
+        # Converte tutti i polinomi custom in oggetti Poly di SymPy
+        from sympy import gcd as sympy_gcd
+        sympy_polys = [p.to_sympy() for p in polynomials]
+        
+        # Calcola il GCD usando l'algoritmo nativo e ottimizzato di SymPy
+        s_gcd = sympy_gcd(*sympy_polys)
+        
+        # Estrae i coefficienti dal risultato di SymPy e li mappa nel formato dict[int, T]
+        # s_gcd.all_coeffs() restituisce i coefficienti dal grado più alto a zero
+        gcd_coeffs_list = s_gcd.all_coeffs()
+        max_deg = len(gcd_coeffs_list) - 1
+        
+        # Ricostruisce il dizionario dei coefficienti invertendo l'ordine dell'indice per i gradi
+        # Es: se all_coeffs è [3, 0, 1] per 3x^2 + 1, assegna il grado 2 a 3, grado 1 a 0, grado 0 a 1
+        coefficients: dict[int, T] = {}
+        for i, coeff_val in enumerate(gcd_coeffs_list):
+            deg = max_deg - i
+            # Converte il valore numerico di SymPy (es. Integer o Rational) nel tipo T dell'anello base
+            # Se l'anello dei coefficienti ha un metodo di casting o se basta il valore grezzo:
+            if coeff_val != 0:
+                # Nota: a seconda di come gestisci i tipi nell'anello base (es. classi custom per Z_p),
+                # potresti voler applicare un cast o un reduce_mod se l'anello è un campo finito.
+                if hasattr(ring, "reduce_mod"):
+                    coefficients[deg] = ring.reduce_mod(int(coeff_val)) # type: ignore
+                else:
+                    # Gestisce il caso di coefficienti frazionari o interi standard
+                    coefficients[deg] = coeff_val
+                    
+        return cls(coefficients, ring)
+
+
+    def __add__(self, other: Polynomial[T]) -> Polynomial[T]:
         d = dict(self.coefficients)
         for p, c in other.coefficients.items():
             if p in d:
@@ -123,7 +217,7 @@ class Polynomial[T]:
     def __iadd__(self, other):
         return self + other
 
-    def __mul__(self, other: object) -> 'Polynomial[T]':
+    def __mul__(self, other: object) -> Polynomial[T]:
         if isinstance(other, Polynomial):
             if self.ring != other.ring:
                 raise ValueError("Cannot multiply polynomials from different rings.")
@@ -152,7 +246,13 @@ class Polynomial[T]:
                     
             return Polynomial(new_coeffs, self.ring)
 
-    def __rmul__(self, other: object) -> 'Polynomial[T]':
+    def __pow__(self, other):
+        res = self
+        for _ in range(other - 1):
+            res = self * res
+        return res
+
+    def __rmul__(self, other: object) -> Polynomial[T]:
         # Scalar * Polynomial (e.g., 3 * p)
         # Multiplication in coefficient rings is typically commutative for scalars,
         # so we can just delegate to __mul__.
@@ -161,11 +261,11 @@ class Polynomial[T]:
     def __divmod__(self, other):
         return self.reduce_mod(other)
 
-    def __neg__(self) -> 'Polynomial[T]':
+    def __neg__(self) -> Polynomial[T]:
         neg_coeff = { power: self.ring.neg(coeff) for power, coeff in self.coefficients.items() }
         return Polynomial[T](neg_coeff, self.ring)
 
-    def __sub__(self, other: 'Polynomial[T]') -> 'Polynomial[T]':
+    def __sub__(self, other: Polynomial[T]) -> Polynomial[T]:
         return self + (-other)
 
     def __isub__(self, other):
@@ -178,7 +278,7 @@ class Polynomial[T]:
         if not isinstance(value, Polynomial):
             return NotImplemented
         if self.ring != value.ring:
-            print(f"The polynomials {self} and {value} have different coefficient rings ({self.ring} vs {value.ring})")
+            # print(f"The polynomials {self} and {value} have different coefficient rings ({self.ring} vs {value.ring})")
             return False
         return self.coefficients == value.coefficients
 
@@ -299,7 +399,7 @@ class Polynomial[T]:
             elif x_part == "x":
                 degree = 1
             elif "^" in x_part:
-                base, exp_str = x_part.split("^")
+                _base, exp_str = x_part.split("^")
                 degree = int(exp_str.strip())
             else:
                 degree = 1

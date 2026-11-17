@@ -1,6 +1,7 @@
-#set page(width: auto, height: auto, margin: 1.0pt, fill: none)
+#set page(width: auto, height: auto, margin: 4.0pt, fill: none)
 #set text(size: 12pt, fill: black)
-#set math.frac(style: "horizontal")
+#set math.frac(style: "skewed")
 
 
-$a dot.c b$
+// Bold Upright (Commonly used for categories)
+$R_x$

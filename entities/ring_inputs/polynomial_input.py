@@ -21,7 +21,7 @@ import pyray as rl
 
 from entities.ring_inputs.base import BaseElementInput
 from mathematics.base import CommUnitRing, get_rect_center
-from mathematics.ring import ZZ, ZZn, QQ, FractionField, Localization, PolyRing, PolyRingQuot
+from mathematics.ring import ZZ, ZZn, QQ, FractionField, LocalizationPrimeIdeal, PolyRing, PolyRingQuot
 from mathematics.poly import Polynomial
 from tfr import FormulaResult, TypstFormulaRenderer
 
@@ -59,7 +59,7 @@ def _build_typst_poly(degree: int, coeffs: list[Any | None]) -> str:
             terms.append(f"{slot} x^{d}")
 
     body = " + ".join(terms) if terms else "0"
-    print(body)
+    # print(body)
     return f"$ {body} $"
 
 # ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ def _make_coeff_widget(
         font=font,
     )
     match coeff_ring:
-        case QQ() | FractionField() | Localization():
+        case QQ() | FractionField() | LocalizationPrimeIdeal():
             return FractionInput(**kwargs)
         case _:
             # ZZ, ZZn, or anything else — integer stepper
@@ -222,13 +222,13 @@ class PolynomialInput(BaseElementInput):
         current    = self._coeff_vals[idx] if self._coeff_set[idx] else None
 
         def _on_confirm(value: Any) -> None:
-            print("CONFIRMING VALUE", value, "FOR COEFF", idx)
-            print("  self is:", id(self), " coeff_set is:", id(self._coeff_set))
+            # print("CONFIRMING VALUE", value, "FOR COEFF", idx)
+            # print("  self is:", id(self), " coeff_set is:", id(self._coeff_set))
             self._coeff_vals[idx] = value
             self._coeff_set[idx]  = True
-            print("  after write:", self._coeff_set)
-            print("PRINTING COEFF SET / VALS", self._coeff_set, self._coeff_vals,
-      "| id(self)=", id(self), "| id(set)=", id(self._coeff_set))
+            # print("  after write:", self._coeff_set)
+            # print("PRINTING COEFF SET / VALS", self._coeff_set, self._coeff_vals,
+      # "| id(self)=", id(self), "| id(set)=", id(self._coeff_set))
             self._active_sub       = None
             self._active_idx       = -1
             self._queue_preview()
@@ -251,7 +251,7 @@ class PolynomialInput(BaseElementInput):
         match coeff_ring:
             case ZZ() | ZZn():
                 sub = IntegerInput(**kwargs) # type: ignore
-            case QQ() | FractionField() | Localization():
+            case QQ() | FractionField() | LocalizationPrimeIdeal():
                 sub = FractionInput(**kwargs) # type: ignore
             case PolyRing() | PolyRingQuot():
                 raise NotImplementedError(

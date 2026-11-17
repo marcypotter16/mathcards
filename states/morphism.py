@@ -279,7 +279,7 @@ class MorphismConstructorState(State):
                         for i in range(len(self.generators))
                     }
                     self.on_complete(mapping)
-                    print(f"\n\n{mapping}\n\n")
+                    # print(f"\n\n{mapping}\n\n")
                 self.game.exit_state()
                 return
 
