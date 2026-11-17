@@ -1,5 +1,6 @@
 import random
 
+import pyray as rl
 from pyray import RenderTexture
 
 from cached import Cache
@@ -7,10 +8,9 @@ from entities.base import Entity
 from entities.game_manager.actions import DrawCardAction
 from entities.game_manager.dataclasses import PlayerView
 from entities.game_manager.events import EVENT_BUS
-from state_manager import StateManager
 from mathematics.vector import Vector2
+from state_manager import StateManager
 
-import pyray as rl
 
 class DeckManager(Entity):
     
@@ -31,6 +31,8 @@ class DeckManager(Entity):
 
         self.deck_size_label_rect = rl.Rectangle(self.rect.x, self.rect.y - 50, self.rect.width, 40)
         self._visible_deck_size_label = False
+
+        self.is_ready = False
 
     @property
     def rect(self) -> rl.Rectangle:

@@ -175,7 +175,7 @@ class HandManager(CardManager):
     def update(self, dt: float):
         if self.pw.viewer != self.me:
             return
-        print(self._dragged_card)
+        # print(self._dragged_card)
 
         # Drop finished leavers without waiting for the next sync.
         self.cards = [

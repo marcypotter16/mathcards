@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 import pyray as rl
 
+from cached import Cache
 from entities.base import Entity
 from mathematics.vector import Vector2
 from Tweener import Tween, TweenManager, TweenParams
@@ -68,14 +69,18 @@ class BaseCard(Entity, ABC):
         self.rot_when_hov:          float           = -6.0
         self.scale_when_hov:        float           = 1.1
         self.render_texture:        rl.RenderTexture | None = None
-        self.back_tex:              rl.Texture
+        self.back_tex:              rl.Texture | None       = Cache.card_back
         self.is_slottable:          bool
         self.is_playable:           bool            = True
         self.texture_is_dirty:      bool
         self.tex:                   rl.Texture
 
         self.tm:                    TweenManager    = TweenManager()
-    
+
+    @property
+    def is_ready(self) -> bool:
+        return NotImplemented
+
     def bake_texture(self):
         return NotImplemented
     

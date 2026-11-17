@@ -293,6 +293,9 @@ type GameAction = (
 class DiscardPileOpenDetail:
     discard_pile:   DiscardPile
 
+class RendererReady:
+    pass
+
 @dataclass(frozen=True)
 class ActionEnvelope:
     action_type:    ActionType

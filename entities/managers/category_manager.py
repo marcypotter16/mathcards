@@ -23,6 +23,10 @@ class CategoryManager(Entity):
         self.ff = self.sm.tfr.queue_formula(form, 400, frac_inline=False)
         self.tex = None
 
+    @property
+    def is_ready(self) -> bool:
+        return self.tex is not None
+
     def sync(self, gw: GameView):
         if self.cat == Category(gw.active_category):
             return

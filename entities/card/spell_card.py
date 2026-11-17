@@ -47,6 +47,11 @@ class SpellCard(BaseCard):
         self.render_texture: rl.RenderTexture | None = None
         self.texture_is_dirty = True
 
+    @property
+    def is_ready(self) -> bool:
+        self._ensure_render_texture()
+        return self.tex is not None and self.back_tex is not None
+
     def _ensure_render_texture(self) -> None:
         if self.render_texture is None:
             self.render_texture = rl.load_render_texture(int(self.DIMENSIONS.x), int(self.DIMENSIONS.y))

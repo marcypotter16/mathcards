@@ -1,9 +1,7 @@
+import pyray as rl
 from pyray import RenderTexture
 
 from entities.card.base import BaseCard
-
-import pyray as rl
-
 from mathematics.vector import Vector2
 
 

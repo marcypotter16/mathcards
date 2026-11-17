@@ -1,5 +1,6 @@
 import pyray as rl
 
+
 class Cache:
     card_back: rl.Texture | None = None
 

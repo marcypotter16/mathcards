@@ -41,6 +41,8 @@ class GameViewRenderer(Entity):
         self.cards = cards
         self.sm = sm
 
+        self.is_ready = False # For loading!
+
         self.state = StateMachine.NORMAL # STATE MACHINE
         
         # Dictionaries to hold managers for ALL players
@@ -78,10 +80,10 @@ class GameViewRenderer(Entity):
                 self.dps[pid]    = DiscardPileManager(opp_dp_center, gw, self.op)
 
         self.op_card_drop_area = rl.Rectangle(
-            0.1 * self.lw,
-            0.1 * self.lh,
-            0.8 * self.lw,
-            0.8 * self.lh
+            0.25 * self.lw,
+            0.25 * self.lh,
+            0.5 * self.lw,
+            0.5 * self.lh
         )
         self._show_card_drop_area = False
         EVENT_BUS.subscribe(CardStartedDragging, self._handle_op_spell_card_drag)
@@ -179,6 +181,19 @@ class GameViewRenderer(Entity):
                 slot.highlighted = False
 
     def update(self, dt: float):
+        # Ensure loading
+        if not self.is_ready:
+            if not self.ring_man.is_ready:
+                self.ring_man.update(dt)
+            if not self.cat_man.is_ready:
+                self.cat_man.update(dt)
+            for card in self.cards.values():
+                if not card.is_ready:
+                    card.update(dt)
+            if all(c.is_ready for c in self.cards.values()):
+                self.is_ready = True
+            return
+
         # Printer.print(rl.get_mouse_position().x, rl.get_mouse_position().y)
         for deck in self.decks.values():
             deck.update(dt)
@@ -266,6 +281,9 @@ class GameViewRenderer(Entity):
         #         for pid, board in self.boards.items()
         #     }),
         # )
+        if not self.is_ready:
+            return
+        
         dirty_cards = [card for card in self.cards.values() if card.texture_is_dirty]
         for card in dirty_cards:
             card.bake_texture()
@@ -273,22 +291,25 @@ class GameViewRenderer(Entity):
         # Resume the logical scene target before drawing any board/hand elements.
         if dirty_cards and logical_texture is not None:
             rl.begin_texture_mode(logical_texture)
-            draw_debug(
-                "Renderer restored logical target after prebaking",
-                f"cards={[card.card_id for card in dirty_cards]}",
-            )
+            # draw_debug(
+            #     "Renderer restored logical target after prebaking",
+            #     f"cards={[card.card_id for card in dirty_cards]}",
+            # )
+        if self._show_card_drop_area:
+            rl.draw_rectangle_rounded_lines(self.op_card_drop_area, 0.1, 0, rl.GREEN)
         for board in self.boards.values():
             board.render(logical_texture)
         if self.state == StateMachine.NORMAL:
             self.ring_man.render(logical_texture)
             self.cat_man.render(logical_texture)
-            for hand in self.hands.values():
-                hand.render(logical_texture)
             for deck in self.decks.values():
                 deck.render(logical_texture)
             for dp in self.dps.values():
                 dp.render(logical_texture)
+            for hand in self.hands.values():
+                hand.render(logical_texture)
                 
+        
         if self.state == StateMachine.SELECT_BOARD_CARDS:
             assert self.resolving_card is not None
             self.resolving_card.render(logical_texture)
@@ -303,5 +324,3 @@ class GameViewRenderer(Entity):
             )  # if you have a custom font; else:
             # rl.draw_text(text, int(pos.x), int(pos.y), 24, rl.WHITE)
 
-        if self._show_card_drop_area:
-            rl.draw_rectangle_rounded_lines(self.op_card_drop_area, 0.1, 0, rl.GREEN)

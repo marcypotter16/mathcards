@@ -38,6 +38,10 @@ class RingManager(Entity, DropZone):
         self.rect = rl.Rectangle()
         EVENT_BUS.subscribe(CardStartedDragging, self._handle_card_started_dragging)
 
+    @property
+    def is_ready(self) -> bool:
+        return self.tex is not None
+
     def can_convert(self, card: BaseCard) -> tuple[bool, str | None]:
         if not isinstance(card, RingElementCard):
             return False, "only ring elements can be converted"

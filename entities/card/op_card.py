@@ -90,6 +90,11 @@ class OperatorCard(BaseCard):
         self.texture_is_dirty = True
         self.game = game
 
+    @property
+    def is_ready(self) -> bool:
+        self._ensure_render_texture()
+        return self.back_tex is not None and self.tex is not None
+
     def _ensure_render_texture(self) -> None:
         if self.render_texture is None:
             self.render_texture = rl.load_render_texture(int(self.DIMENSIONS.x), int(self.DIMENSIONS.y))
