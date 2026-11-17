@@ -18,6 +18,7 @@ from mathematics.ring import (
     ZZn,
 )
 from Settings import WINDOW
+from shaders.shaders import Shaders
 from state_manager import StateManager
 from states.menu import MainMenuState
 from states.morphism import MorphismConstructorState
@@ -45,6 +46,7 @@ async def main() -> None:
     rl.set_window_icon(icon)
     LOGICAL_TEXTURE = rl.load_render_texture(LWW, LWH)
     Cache.init()
+    Shaders.init()
 
     tfr             = TypstFormulaRenderer()
     game            = StateManager(tfr)

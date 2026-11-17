@@ -9,6 +9,8 @@ from state_manager import StateManager
 
 
 class CategoryManager(Entity):
+    # TODO: Assign a color to each category and update the game background
+    # whenever the active category changes.
     def __init__(self, center: Vector2, sm: StateManager, gw: GameView, initial_cat: Category) -> None:
         super().__init__()
         self.gw = gw

@@ -9,14 +9,8 @@ from mathematics.serialization import (
     serialize_ring,
 )
 from mathematics.vector import Vector2
-from Settings import (
-    COLOR_FRACTION,
-    COLOR_INTEGER,
-    COLOR_POLYNOMIAL,
-    COLOR_WHEN_UNPLAYABLE,
-    COLOR_ZMOD,
-    get_dimmed_color,
-)
+from Settings import *
+from shaders.shaders import Shaders
 from state_manager import StateManager
 from utility import draw_fitted_texture
 
@@ -33,6 +27,7 @@ class RingElementCard[T](BaseCard):
 
     # --- Vertical Layout ---
     DIMENSIONS = Vector2(150, 225)
+    GLOW_PADDING = 20
 
     def __init__(self, game: StateManager, ring: CommUnitRing[T], element: T, card_id: int | None = None) -> None:
         super().__init__(card_id)
@@ -81,7 +76,10 @@ class RingElementCard[T](BaseCard):
 
     def _ensure_render_texture(self) -> None:
         if self.render_texture is None:
-            self.render_texture = rl.load_render_texture(int(self.DIMENSIONS.x), int(self.DIMENSIONS.y))
+            padded_w = int(self.DIMENSIONS.x + self.GLOW_PADDING * 2)
+            padded_h = int(self.DIMENSIONS.y + self.GLOW_PADDING * 2)
+            self.render_texture = rl.load_render_texture(padded_w, padded_h)
+            # self.render_texture = rl.load_render_texture(int(self.DIMENSIONS.x), int(self.DIMENSIONS.y))
             rl.set_texture_filter(self.render_texture.texture, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
 
     def update(self, dt):
@@ -103,25 +101,42 @@ class RingElementCard[T](BaseCard):
         rl.begin_texture_mode(self.render_texture)
         rl.clear_background(rl.BLANK)
         
+        pad = self.GLOW_PADDING
         bt = self.border_thickness
         W, H = self.DIMENSIONS.x - bt, self.DIMENSIONS.y - bt
-        header_h = 50 # Slightly shorter header to give more room to the main math
+        header_h = 50  # Slightly shorter header to give more room to the main math
 
-        # 1. Draw Outer Border
-        rl.draw_rectangle_rounded(rl.Rectangle(0, 0, W + bt, H + bt), 0.1, 0, self.border_color)
+        # 1. Draw Outer Border (offset by pad)
+        rl.draw_rectangle_rounded(
+            rl.Rectangle(pad, pad, W + bt, H + bt), 0.1, 0, self.border_color
+        )
 
-        x = y = bt / 2
+        x = pad + (bt / 2)
+        y = pad + (bt / 2)
 
         # 2. Draw Full Card Background
-        rl.draw_rectangle_rounded(rl.Rectangle(x, y, W, H), 0.1, 4, self.bg_color if self.is_playable else COLOR_WHEN_UNPLAYABLE)
+        rl.draw_rectangle_rounded(
+            rl.Rectangle(x, y, W, H), 
+            0.1, 
+            4, 
+            self.bg_color if self.is_playable else COLOR_WHEN_UNPLAYABLE
+        )
 
-        # 3. Define Boxes
+        # 3. Define Boxes (all inherit the padded x and y)
         # Top left (Element mini), Top right (Ring), and Center Body (Element main)
         top_left_box  = rl.Rectangle(x, y, W * 0.5, header_h)
-        top_right_box = rl.Rectangle(x + W * 0.5, y + 0, W * 0.5, header_h)
+        top_right_box = rl.Rectangle(x + W * 0.5, y, W * 0.5, header_h)
         body_rect     = rl.Rectangle(x + 10, y + header_h, W - 20, H - header_h - 10)
 
-        rl.draw_line(10, int(top_left_box.y + top_left_box.height), int(W-10), int(top_left_box.y + top_left_box.height), get_dimmed_color(self.bg_color))
+        # Offset the separator line by pad as well
+        line_y = int(top_left_box.y + top_left_box.height)
+        rl.draw_line(
+            int(pad + 10), 
+            line_y, 
+            int(pad + W - 10), 
+            line_y, 
+            get_dimmed_color(self.bg_color)
+        )
 
         # 4. Draw Formulas
         if self.el_tex is not None:
@@ -137,6 +152,7 @@ class RingElementCard[T](BaseCard):
         rl.end_texture_mode()
         self.texture_is_dirty = False
 
+
     def render(self, logical_texture: rl.RenderTexture | None = None):
         """Draws the pre-baked card texture to the screen."""
         self._ensure_render_texture()
@@ -146,20 +162,73 @@ class RingElementCard[T](BaseCard):
             if logical_texture is not None:
                 rl.begin_texture_mode(logical_texture)
 
+        # --- ADD SHADER LOGIC HERE ---
+        use_glow = self.state.is_hovered # Example trigger
+        padded_w = self.DIMENSIONS.x + self.GLOW_PADDING * 2
+        padded_h = self.DIMENSIONS.y + self.GLOW_PADDING * 2
+        if use_glow:
+            glow_shader = Shaders.glow_shader
+            glow_color_loc = rl.get_shader_location(glow_shader, "glowColor")
+            glow_width_loc = rl.get_shader_location(glow_shader, "glowWidth")
+            texture_size_loc = rl.get_shader_location(glow_shader, "textureSize")
+            rl.begin_shader_mode(glow_shader)
+            
+            # pyray's set_shader_value accepts Python sequences for uniform data.
+            rl.set_shader_value(
+                glow_shader,
+                glow_width_loc,
+                rl.ffi.new('float *', 4.0),
+                rl.ShaderUniformDataType.SHADER_UNIFORM_FLOAT,
+            )
+            
+            shader_color = [
+                self.bg_color.r / 255.0,
+                self.bg_color.g / 255.0,
+                self.bg_color.b / 255.0,
+                150.0 / 255.0,
+            ]
+            rl.set_shader_value(
+                glow_shader,
+                glow_color_loc,
+                rl.ffi.new('float[4]', shader_color),
+                rl.ShaderUniformDataType.SHADER_UNIFORM_VEC4,
+            )
+            
+            rl.set_shader_value(
+                glow_shader,
+                texture_size_loc,
+                rl.ffi.new('float[2]', [float(padded_w), float(padded_h)]),
+                rl.ShaderUniformDataType.SHADER_UNIFORM_VEC2,
+            )
+        self._ensure_render_texture()
+        assert self.render_texture is not None
+        if self.texture_is_dirty:
+            self.bake_texture()
+            if logical_texture is not None:
+                rl.begin_texture_mode(logical_texture)
+
         # Draw the composed card texture using integer coordinates for sharpness
+
+        dest_w = int(padded_w * self.scale)
+        dest_h = int(padded_h * self.scale)
+
         rl.draw_texture_pro(
             self.render_texture.texture, 
-            rl.Rectangle(0, 0, self.DIMENSIONS.x, -self.DIMENSIONS.y), 
+            rl.Rectangle(0, 0, padded_w, -padded_h), 
             rl.Rectangle(
                 int(self.center.x), 
                 int(self.center.y), 
-                int(self.DIMENSIONS.x * self.scale), 
-                int(self.DIMENSIONS.y * self.scale)
+                dest_w, 
+                dest_h
             ),
-            rl.Vector2(int(self.DIMENSIONS.x * self.scale / 2), int(self.DIMENSIONS.y * self.scale / 2)), 
+            rl.Vector2(int(dest_w / 2), int(dest_h / 2)), 
             self.rotation,
             rl.WHITE
         )
+
+
+        if use_glow:
+            rl.end_shader_mode()
 
 
     ### SERIALIZATION ###
