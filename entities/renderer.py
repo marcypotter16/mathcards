@@ -2,7 +2,6 @@ from enum import Enum
 
 import pyray as rl
 
-from draw_debug import draw_debug
 from entities.base import Entity
 from entities.card.base import BaseCard, CardId
 from entities.card.op_card import OperatorCard
@@ -139,9 +138,14 @@ class GameViewRenderer(Entity):
     def _on_op_spell_card_resolve(self, action: OpCardStartResolving) -> None:
         c = self.cards[action.card_id]
         assert c is not None
-        assert type(c) in {OperatorCard, SpellCard}
+        assert isinstance(c, (OperatorCard, SpellCard))
         self.state = StateMachine.SELECT_BOARD_CARDS
         self.resolving_card = c
+        c.state.hover_locked = True
+        c.state.is_hovered = False
+        c.state._last_frame_hovered = False
+        c.state.started_hovering = False
+        c.state.ended_hovering = False
         self.resolving_card.tween_scale(1.5)
         self.resolving_card.tween_center(self.resolving_card_center, 0.4)
         self.resolving_card.tween_rotation(0.0, 0.4)
@@ -150,11 +154,11 @@ class GameViewRenderer(Entity):
 
     def sync(self, gw: GameView, action: GameAction | None = None):
         """Called by MatchManager after state changes."""
-        draw_debug(
-            "Renderer.sync begin",
-            f"action={type(action).__name__ if action is not None else None}",
-            f"actor={getattr(action, 'player_id', None)}",
-        )
+        # draw_debug(
+        #     "Renderer.sync begin",
+        #     f"action={type(action).__name__ if action is not None else None}",
+        #     f"actor={getattr(action, 'player_id', None)}",
+        # )
         self.gw = gw
         
         # Update all managers with the new redacted views
@@ -173,7 +177,7 @@ class GameViewRenderer(Entity):
             #     self.hands[pid].on_action(action, pview)
             # else:
             #     self.hands[pid].sync(pview)
-        draw_debug("Renderer.sync end")
+        # draw_debug("Renderer.sync end")
 
     def _reset_board_slots(self):
         for board in self.boards.values():
@@ -181,6 +185,9 @@ class GameViewRenderer(Entity):
                 slot.highlighted = False
 
     def update(self, dt: float):
+        if self.resolving_card:
+            print(self.resolving_card.state.is_hovered)
+            # self.resolving_card.update(dt)
         # Ensure loading
         if not self.is_ready:
             if not self.ring_man.is_ready:

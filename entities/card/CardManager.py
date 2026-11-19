@@ -60,7 +60,10 @@ class CardManager(Entity):
         mouse_down = rl.is_mouse_button_down(rl.MouseButton.MOUSE_BUTTON_LEFT)
         
         # Since self.cards is always sorted by z_index, index -1 is the topmost drawn card
-        hovered_cards = [c for c in self.cards if rl.check_collision_point_rec(mouse_pos, c.get_rect())]
+        hovered_cards = [
+            c for c in self.cards
+            if not c.state.hover_locked and rl.check_collision_point_rec(mouse_pos, c.get_rect())
+        ]
         current_top_hover = hovered_cards[-1] if hovered_cards else None
 
         for card in reversed(self.cards):
@@ -71,12 +74,20 @@ class CardManager(Entity):
                 card.state.update_last_frame_vars()
                 continue
 
+            if card.state.hover_locked:
+                card.state.is_hovered = False
+                card.state._last_frame_hovered = False
+                card.update(dt)
+                card.state.update_last_frame_vars()
+                continue
+
             is_hovered_this_frame = (card == current_top_hover) or (self._dragged_card == card)
 
             card.state.is_hovered = is_hovered_this_frame
             if is_hovered_this_frame and not card.state._last_frame_hovered:
                 card.state.started_hovering = True
                 self._hovered_card = card
+                self.bring_card_above_others(card)
                 # print(f"Started hovering: {card}")
 
             elif not is_hovered_this_frame and card.state._last_frame_hovered:
@@ -84,6 +95,7 @@ class CardManager(Entity):
                 if self._hovered_card == card:
                     self._hovered_card = None
                     self._needs_sorting = True
+                    self.undo_card_above_others(card)
                 # print(f"Ended hovering: {card}")
 
             if mouse_down and (is_hovered_this_frame or card.state._last_frame_dragged):
@@ -108,8 +120,8 @@ class CardManager(Entity):
                     EVENT_BUS.emit(CardEndedDragging(card, card.center))
                     # Drop handlers use different actions for board, operator, and
                     # spell cards, so clear the pointer state for every release.
-                    # if self._dragged_card is card:
-                    #     self._dragged_card = None
+                    if self._dragged_card is card:
+                        self._dragged_card = None
 
             card.update(dt)
             card.state.update_last_frame_vars()

@@ -3,6 +3,7 @@ from pyray import RenderTexture
 
 from entities.card.base import BaseCard
 from mathematics.vector import Vector2
+from shaders.shaders import Shaders
 
 
 class PlaceholderCard(BaseCard):
@@ -17,8 +18,4 @@ class PlaceholderCard(BaseCard):
         return super().update(dt)
 
     def render(self, logical_texture: RenderTexture | None):
-        tex = self.back_tex
-        topleft = self.center - .5 * self.DIMENSIONS
-        dest = rl.Rectangle(topleft.x, topleft.y, self.DIMENSIONS.x, self.DIMENSIONS.y)
-        source = rl.Rectangle(0, 0, tex.width, tex.height)
-        rl.draw_texture_pro(tex, source, dest, (0, 0), 0.0, rl.WHITE)
+        Shaders.card_visuals.draw(self)

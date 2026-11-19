@@ -162,73 +162,7 @@ class RingElementCard[T](BaseCard):
             if logical_texture is not None:
                 rl.begin_texture_mode(logical_texture)
 
-        # --- ADD SHADER LOGIC HERE ---
-        use_glow = self.state.is_hovered # Example trigger
-        padded_w = self.DIMENSIONS.x + self.GLOW_PADDING * 2
-        padded_h = self.DIMENSIONS.y + self.GLOW_PADDING * 2
-        if use_glow:
-            glow_shader = Shaders.glow_shader
-            glow_color_loc = rl.get_shader_location(glow_shader, "glowColor")
-            glow_width_loc = rl.get_shader_location(glow_shader, "glowWidth")
-            texture_size_loc = rl.get_shader_location(glow_shader, "textureSize")
-            rl.begin_shader_mode(glow_shader)
-            
-            # pyray's set_shader_value accepts Python sequences for uniform data.
-            rl.set_shader_value(
-                glow_shader,
-                glow_width_loc,
-                rl.ffi.new('float *', 4.0),
-                rl.ShaderUniformDataType.SHADER_UNIFORM_FLOAT,
-            )
-            
-            shader_color = [
-                self.bg_color.r / 255.0,
-                self.bg_color.g / 255.0,
-                self.bg_color.b / 255.0,
-                150.0 / 255.0,
-            ]
-            rl.set_shader_value(
-                glow_shader,
-                glow_color_loc,
-                rl.ffi.new('float[4]', shader_color),
-                rl.ShaderUniformDataType.SHADER_UNIFORM_VEC4,
-            )
-            
-            rl.set_shader_value(
-                glow_shader,
-                texture_size_loc,
-                rl.ffi.new('float[2]', [float(padded_w), float(padded_h)]),
-                rl.ShaderUniformDataType.SHADER_UNIFORM_VEC2,
-            )
-        self._ensure_render_texture()
-        assert self.render_texture is not None
-        if self.texture_is_dirty:
-            self.bake_texture()
-            if logical_texture is not None:
-                rl.begin_texture_mode(logical_texture)
-
-        # Draw the composed card texture using integer coordinates for sharpness
-
-        dest_w = int(padded_w * self.scale)
-        dest_h = int(padded_h * self.scale)
-
-        rl.draw_texture_pro(
-            self.render_texture.texture, 
-            rl.Rectangle(0, 0, padded_w, -padded_h), 
-            rl.Rectangle(
-                int(self.center.x), 
-                int(self.center.y), 
-                dest_w, 
-                dest_h
-            ),
-            rl.Vector2(int(dest_w / 2), int(dest_h / 2)), 
-            self.rotation,
-            rl.WHITE
-        )
-
-
-        if use_glow:
-            rl.end_shader_mode()
+        Shaders.card_visuals.draw(self)
 
 
     ### SERIALIZATION ###

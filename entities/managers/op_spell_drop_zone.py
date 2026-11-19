@@ -1,8 +1,6 @@
 import pyray as rl
 
 from entities.card.base import BaseCard
-from entities.card.op_card import OperatorCard
-from entities.card.spell_card import SpellCard
 from entities.game_manager.actions import CardEndedDragging, OpCardStartResolving
 from entities.game_manager.events import EVENT_BUS
 from entities.player import PlayerId
@@ -35,14 +33,17 @@ class OpSpellDrop(DropZone):
             self.is_visible = False
             return DropResult.InsideInvalid
 
-        assert type(c) in {OperatorCard, SpellCard}
+        # assert type(c) in {OperatorCard, SpellCard}
 
-        # Handle the visual tween & own state
-        self.resolving_card = c
-        self.resolving_card.tween_scale(1.5)
-        self.resolving_card.tween_center(self.resolving_card_center, 0.4)
-        self.is_visible = False
+        # # Handle the visual tween & own state
+        # self.resolving_card = c
+        # self.resolving_card.tween_scale(1.5)
+        # self.resolving_card.tween_center(self.resolving_card_center, 0.4,
+        #                                  callback=setattr(self.resolving_card.state, "is_hovered", False))
+        # # self.resolving_card.state.is_hovered = False
+        # #, callback=setattr(c.state, "is_hovered", False)
+        # self.is_visible = False
 
-        # Notify the game controller to switch state to SELECT_BOARD_CARDS
+        # # Notify the game controller to switch state to SELECT_BOARD_CARDS
         EVENT_BUS.emit(OpCardStartResolving(self.player_id, c.card_id))
         return DropResult.Accepted

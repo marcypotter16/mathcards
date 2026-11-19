@@ -12,8 +12,7 @@ from entities.game_manager.actions import (
 from entities.game_manager.events import EVENT_BUS
 from entities.player import PlayerId, PlayerView
 from entities.slot import Slot
-from interfaces import DropResult
-from interfaces import DropZone
+from interfaces import DropResult, DropZone
 from mathematics.vector import Vector2
 
 

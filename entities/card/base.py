@@ -124,7 +124,7 @@ class BaseCard(Entity, ABC):
         
         if self.state.started_hovering:
             self.tween_center(self.get_center_after_hover())
-            self.tween_rotation(self.rot_when_hov)
+            # self.tween_rotation(self.rot_when_hov)
         
         if self.state.ended_hovering:
             self.tween_center(self.center_rest)
@@ -154,6 +154,7 @@ class CardState:
     leaving_to_gy:          bool = False
     is_dragged:             bool = False
     is_hovered:             bool = False
+    hover_locked:           bool = False
     started_dragging:       bool = False
     started_hovering:       bool = False
     ended_dragging:         bool = False

@@ -5,6 +5,7 @@ from entities.card.eor_card import RingElementCard
 from entities.card.op_card import OperatorCard, OperatorType
 from entities.card.placeholder import PlaceholderCard
 from entities.game_manager.actions import (
+    CardEndedDragging,
     CardInserted,
     CardShouldSnapBack,
     CardToDiscardPileAction,
@@ -36,6 +37,7 @@ class HandManager(CardManager):
         EVENT_BUS.subscribe(CardShouldSnapBack, self._handle_card_snap_back)
         EVENT_BUS.subscribe(CardToDiscardPileAction, self._handle_card_discarded)
         EVENT_BUS.subscribe(PlayCardToSlotAction, lambda act: self._undrag_card())
+        EVENT_BUS.subscribe(CardEndedDragging, lambda act: self._undrag_card())
 
         for i in range(n):
             x = start_x + (i * self.distance)
@@ -154,6 +156,9 @@ class HandManager(CardManager):
     def _handle_card_discarded(self, act: CardToDiscardPileAction):
         # Operator and spell cards stay in the hand while their target selection
         # is open. Clear the held-card reference only once the played card leaves.
+        card = self.all_cards.get(act.card_id)
+        if card is not None:
+            card.state.hover_locked = False
         if self._dragged_card is not None and self._dragged_card.card_id == act.card_id:
             self._dragged_card.state.is_dragged = False
             self._dragged_card.state._last_frame_dragged = False
@@ -167,6 +172,7 @@ class HandManager(CardManager):
         #     f"cached_z={self._cached_hovered_card_z_index} "
         #     f"current_z={act.card.z_index}"
         # )
+        act.card.state.hover_locked = False
         act.card.snap_back()
         self.undo_card_above_others(act.card)
         self._dragged_card = None

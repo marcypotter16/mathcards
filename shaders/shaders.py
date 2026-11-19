@@ -1,13 +1,18 @@
 import pyray as rl
 
+from shaders.card_visuals import CardVisualRenderer
+
 
 class Shaders:
     glow_shader: rl.Shader
+    card_visuals: CardVisualRenderer
 
     @classmethod
     def init(cls):
-        # Load it once
         cls.glow_shader = rl.load_shader("shaders/glow.vs", "shaders/glow.fs")
-        # glow_color_loc = rl.get_shader_location(glow_shader, "glowColor")
-        # glow_width_loc = rl.get_shader_location(glow_shader, "glowWidth")
-        # texture_size_loc = rl.get_shader_location(glow_shader, "textureSize")
+        cls.card_visuals = CardVisualRenderer(cls.glow_shader)
+
+    @classmethod
+    def unload(cls) -> None:
+        if hasattr(cls, "glow_shader"):
+            rl.unload_shader(cls.glow_shader)

@@ -29,6 +29,7 @@ class Slot(Entity):
             card.tween_rotation(0.0)
         if card.scale != 1.0:
             card.tween_scale(1.0)
+        card.state.is_hovered = False
         card.tween_center(self.center, callback=lambda: card.place_card(self.center))
         return True
 

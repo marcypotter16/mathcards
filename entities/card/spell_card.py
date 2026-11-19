@@ -1,4 +1,5 @@
 import pyray as rl
+from shaders.shaders import Shaders
 
 from draw_debug import draw_debug
 from entities.card.base import BaseCard, SpellCardSer
@@ -162,20 +163,7 @@ class SpellCard(BaseCard):
                 rl.begin_texture_mode(logical_texture)
                 draw_debug("SpellCard.render logical target restored", f"card={self.card_id}")
 
-        # Draw the baked card
-        rl.draw_texture_pro(
-            self.render_texture.texture, 
-            rl.Rectangle(0, 0, self.DIMENSIONS.x, -self.DIMENSIONS.y), 
-            rl.Rectangle(
-                int(self.center.x), 
-                int(self.center.y), 
-                int(self.DIMENSIONS.x * self.scale), 
-                int(self.DIMENSIONS.y * self.scale)
-            ),
-            rl.Vector2(int(self.DIMENSIONS.x * self.scale / 2), int(self.DIMENSIONS.y * self.scale / 2)), 
-            self.rotation,
-            rl.WHITE
-        )
+        Shaders.card_visuals.draw(self)
 
     def unload(self) -> None:
         """Clean up GPU resources."""

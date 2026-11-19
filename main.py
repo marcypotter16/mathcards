@@ -22,6 +22,7 @@ from shaders.shaders import Shaders
 from state_manager import StateManager
 from states.menu import MainMenuState
 from states.morphism import MorphismConstructorState
+from states.renderer_test_state2 import RendererTestState2
 from tfr import TypstFormulaRenderer
 
 SWW, LWW, SWH, LWH = WINDOW["S_WIDTH"], WINDOW["L_WIDTH"], WINDOW["S_HEIGHT"], WINDOW["L_HEIGHT"]
@@ -65,7 +66,7 @@ async def main() -> None:
     menu = MainMenuState(game)
     # game.enter_state(menu)
     # game.enter_state(mc)
-    # t = RendererTestState(game)
+    t = RendererTestState2(game)
     game.enter_state(menu)
 
     try:
@@ -91,6 +92,7 @@ async def main() -> None:
         # card_manager.unload()
         rl.unload_render_texture(LOGICAL_TEXTURE)
         game.unload()
+        Shaders.unload()
         rl.close_window()
 
 
